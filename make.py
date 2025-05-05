@@ -44,11 +44,6 @@ def UpdateTagIndex(tagname, note_path):
     Verifica che la nota non sia già presente sotto il tag.
     """
     try:
-        # Controlla se il file TAGS_INDEX_FILE esiste, altrimenti lo crea
-        if not os.path.exists(TAGS_INDEX_FILE):
-            with open(TAGS_INDEX_FILE, "w", encoding="utf-8") as tag_file:
-                tag_file.write("# Indice dei Tag\n\n")
-
         # Leggi il contenuto esistente del file
         with open(TAGS_INDEX_FILE, "r", encoding="utf-8") as tag_file:
             content = tag_file.readlines()
@@ -99,6 +94,8 @@ def CheckConsistency():
         for root, dirs, files in os.walk(VAULT_DIR):
             for file in files:
                 if file.endswith(".md"):
+                    if(file == "main-index.md" or file == "tags-index.md"):
+                        continue
                     # Controlla se il nome del file è nel formato YYYY-MM-DD.md
                     match = re.match(r"(\d{4})-(\d{2})-(\d{2})\.md", file)
                     relative_path = os.path.relpath(os.path.join(root, file), VAULT_DIR)
@@ -139,7 +136,7 @@ def UpdateIndex():
     """
     # Check di consistenza del nome preventivo per evitare nomi di file manuali non corretti
     CheckConsistency()
-    
+
     try:
         # Controlla se VAULT_DIR esiste
         if not os.path.exists(VAULT_DIR):
@@ -150,6 +147,12 @@ def UpdateIndex():
         if not os.path.exists(MAIN_INDEX_FILE):
             with open(MAIN_INDEX_FILE, "w", encoding="utf-8") as index_file:
                 index_file.write("# Indice Principale\n\n")
+            print(f"File '{MAIN_INDEX_FILE}' creato con successo.")
+            
+        # Controlla se TAGS_INDEX_FILE esiste, altrimenti crealo
+        if not os.path.exists(TAGS_INDEX_FILE):
+            with open(TAGS_INDEX_FILE, "w", encoding="utf-8") as tags_file:
+                tags_file.write("# Indice TAGS\n\n")
             print(f"File '{MAIN_INDEX_FILE}' creato con successo.")
 
         # Dizionario per organizzare le note per anno
@@ -162,7 +165,7 @@ def UpdateIndex():
                 if file.endswith(".md"):  # Considera solo i file Markdown
                     file_path = os.path.join(root, file)
                     relative_path = os.path.relpath(file_path, VAULT_DIR)
-                    
+
                     # Estrai anno e nome del file
                     parts = relative_path.split(os.sep)
                     if len(parts) >= 2:  # Assicura che ci sia almeno una cartella (anno)
@@ -180,11 +183,14 @@ def UpdateIndex():
                             if line.strip() == "## tags":
                                 tags_section_found = True
                                 j = i + 1
-                                while j < len(content) and content[j].startswith("- "):
-                                    tag = content[j].strip().lstrip("- ").strip()
-                                    if tag not in tags_data:
-                                        tags_data[tag] = []
-                                    tags_data[tag].append(relative_path.replace("\\", "/"))
+                                while j < len(content):
+                                    if content[j].startswith("- "):  # Considera solo gli elenchi puntati
+                                        tag = content[j].strip().lstrip("- ").strip()
+                                        if tag not in tags_data:
+                                            tags_data[tag] = []
+                                        tags_data[tag].append(relative_path.replace("\\", "/"))
+                                    elif content[j].strip().startswith("## "):  # Fine del blocco ## tags
+                                        break
                                     j += 1
                                 break
 
@@ -202,10 +208,13 @@ def UpdateIndex():
         print(f"Indice aggiornato con successo in '{MAIN_INDEX_FILE}'.")
 
         # Scrivi l'indice dei tag in TAGS_INDEX_FILE
-        for tag, notes in sorted(tags_data.items()):
-            for note_path in sorted(notes):
-                # Usa la funzione UpdateTagIndex per aggiornare il file TAGS_INDEX_FILE
-                UpdateTagIndex(tag, note_path)
+        with open(TAGS_INDEX_FILE, "w", encoding="utf-8") as tags_file:
+            tags_file.write("# Indice TAGS\n\n")
+            for tag, notes in sorted(tags_data.items()):
+                tags_file.write(f"## {tag}\n\n")
+                for note_path in sorted(notes):
+                    tags_file.write(f"- [{os.path.basename(note_path)}]({note_path})\n")
+                tags_file.write("\n")
 
         print(f"Indice dei tag aggiornato con successo in '{TAGS_INDEX_FILE}'.")
 
@@ -348,12 +357,12 @@ def AddTagToNoteName(tagname, notename):
         for i, line in enumerate(content):
             if line.strip() == "## tags":
                 tags_section_found = True
-                # Controlla se ci sono già tag sotto la sezione ##tags
+                # Controlla se ci sono già tag sotto la sezione ## tags
                 j = i + 1
                 while j < len(content) and content[j].startswith("- "):
                     j += 1
-                # Aggiungi il nuovo tag all'elenco puntato
-                content.insert(j, f"- {tagname}\n")
+                # Aggiungi uno spazio e il nuovo tag all'elenco puntato
+                content.insert(j, f"\n- {tagname}\n")
                 break
 
         # Se la sezione ## tags non esiste, creala in fondo al file
@@ -364,8 +373,7 @@ def AddTagToNoteName(tagname, notename):
         # Scrivi il contenuto aggiornato nella nota
         with open(note_path, "w", encoding="utf-8") as file:
             file.writelines(content)
-            
-        
+
         # Aggiorna il tag-index.md con le note che contengono il tag
         UpdateTagIndex(tagname, note_path)
 
@@ -456,11 +464,11 @@ def main():
         print("Check completato. All fine! >(^_^)>")
         
     elif args.fast_tag:
-        if not args.custom:
+        if not args.fast_tag:
             print("Errore: l'opzione --fast-tag richiede un argomento TAGNAME")
             sys.exit(1)
-        print(f"Aggiunta del tag '{args.fast_tag}' alla nota di oggi...")
-        AddTagToTodayNote(args.fast_tag)
+        print(f"Aggiunta del tag '{args.fast_tag[0]}' alla nota di oggi...")
+        AddTagToTodayNote(args.fast_tag[0])
                 
     elif args.tag:
         if len(args.tag) < 2:
