@@ -57,17 +57,16 @@ def UpdateTagIndex(tagname, note_path):
                 j = i + 1
                 while j < len(content) and content[j].startswith("- "):
                     if note_path in content[j]:
-                        # print(f"La nota '{note_path}' è già presente sotto il tag '{tagname}'.")
                         return
                     j += 1
                 # Aggiungi la nota all'elenco puntato
-                content.insert(j, f"- [{os.path.basename(note_path)}]({note_path})\n")
+                content.insert(j, f"- [{os.path.basename(note_path)}]({note_path})\n\n")
                 break
 
         # Se la sezione del tag non esiste, creala in fondo al file
         if not tag_section_found:
-            content.append(f"\n## {tagname}\n")
-            content.append(f"- [{os.path.basename(note_path)}]({note_path})\n")
+            content.append(f"## {tagname}\n\n")
+            content.append(f"- [{os.path.basename(note_path)}]({note_path})\n\n")
 
         # Scrivi il contenuto aggiornato nel file
         with open(TAGS_INDEX_FILE, "w", encoding="utf-8") as tag_file:
@@ -75,6 +74,61 @@ def UpdateTagIndex(tagname, note_path):
 
     except Exception as e:
         print(f"Errore durante l'aggiornamento del file dei tag: {e}")
+
+def FixNoteTagSpaces(notename):
+    """
+    Legge la nota specificata, analizza la sezione ## tags e rimuove eventuali righe vuote
+    tra gli elementi dell'elenco.
+    """
+    try:
+        
+        if not notename:
+            print(f"Errore: La nota '{os.path.relpath(notename, VAULT_DIR)}' non è stata trovata.")
+            return
+
+        # Leggi il contenuto della nota
+        with open(notename, "r", encoding="utf-8") as file:
+            content = file.readlines()
+
+        # Cerca la sezione ## tags
+        tags_section_found = False
+        new_content = []
+        in_tags_section = False
+
+        for line in content:
+            stripped_line = line.strip()
+
+            if stripped_line == "## tags":
+                tags_section_found = True
+                in_tags_section = True
+                new_content.append(line)  # Mantieni il titolo ## tags
+                continue
+
+            if in_tags_section:
+                if stripped_line.startswith("## "):  # Fine della sezione ## tags
+                    in_tags_section = False
+
+                elif stripped_line.startswith("- "):  # Elemento dell'elenco
+                    new_content.append(line)
+                    continue
+
+                elif not stripped_line:  # Riga vuota, ignorala
+                    continue
+
+            new_content.append(line)  # Mantieni le righe fuori dalla sezione ## tags
+
+        if not tags_section_found:
+            #print(f"Avviso: La sezione ## tags non è presente nella nota '{os.path.relpath(notename, VAULT_DIR)}'. Nessuna azione necessaria.")
+            return
+
+        # Scrivi il contenuto aggiornato nella nota
+        with open(notename, "w", encoding="utf-8") as file:
+            file.writelines(new_content)
+
+        #print(f"Spazi extra rimossi dalla sezione ## tags nella nota '{os.path.relpath(notename, VAULT_DIR)}'.")
+
+    except Exception as e:
+        print(f"Errore durante la correzione degli spazi nella sezione ## tags: {e}")
 
 #########################
 ## PRINCIPAL FUNCTIONS ##
@@ -107,6 +161,9 @@ def CheckConsistency():
                             duplicate_notes.append(relative_path)  # Aggiungi il percorso relativo del file duplicato
                         else:
                             note_names.add(file)
+                else:
+                    relative_path = os.path.relpath(os.path.join(root, file), VAULT_DIR)
+                    invalid_notes.append(relative_path)
 
         # Stampa i risultati
         if invalid_notes:
@@ -128,11 +185,60 @@ def CheckConsistency():
         print(f"Errore durante il controllo della consistenza: {e}")
         sys.exit(1)
 
+def UpdateMainIndex(notes_by_year):
+    """
+    Aggiorna il file MAIN_INDEX_FILE con tutte le note presenti nel vault, organizzate per anno.
+    """
+    # Controlla se MAIN_INDEX_FILE esiste, altrimenti crealo
+    if not os.path.exists(MAIN_INDEX_FILE):
+        with open(MAIN_INDEX_FILE, "w", encoding="utf-8") as index_file:
+            index_file.write("# Indice Principale\n\n")
+        print(f"File '{os.path.relpath(MAIN_INDEX_FILE, VAULT_DIR)}' creato con successo.")
+        
+    
+    try:
+        with open(MAIN_INDEX_FILE, "w", encoding="utf-8") as index_file:
+            index_file.write("# Indice Principale\n\n")
+            for year, notes in sorted(notes_by_year.items()):
+                # Scrivi il titolo dell'anno
+                index_file.write(f"# {year}\n\n")
+                for note_name, note_path in sorted(notes):
+                    # Estrai MM-DD dal nome del file
+                    date_part = note_name.split(".")[0][5:]  # Prende MM-DD
+                    index_file.write(f"- [{date_part}]({note_path})\n")
+                index_file.write("\n")  # Aggiungi una riga vuota tra gli anni
+        #print(f"Indice principale aggiornato con successo in '{os.path.relpath(MAIN_INDEX_FILE, VAULT_DIR)}'.")
+    except Exception as e:
+        print(f"Errore durante l'aggiornamento del file principale: {e}")
+
+
+def UpdateTagsIndex(tags_data):
+    """
+    Aggiorna il file TAGS_INDEX_FILE con tutti i tag presenti nel vault e le note associate.
+    """
+    
+    # Controlla se TAGS_INDEX_FILE esiste, altrimenti crealo
+    if not os.path.exists(TAGS_INDEX_FILE):
+        with open(TAGS_INDEX_FILE, "w", encoding="utf-8") as tags_file:
+            tags_file.write("# Indice TAGS\n\n")
+        print(f"File '{os.path.relpath(TAGS_INDEX_FILE, VAULT_DIR)}' creato con successo.")
+
+    try:
+        with open(TAGS_INDEX_FILE, "w", encoding="utf-8") as tags_file:
+            tags_file.write("# Indice TAGS\n\n")
+            for tag, notes in sorted(tags_data.items()):
+                tags_file.write(f"## {tag}\n\n")
+                for note_path in sorted(notes):
+                    tags_file.write(f"- [{os.path.basename(note_path)}]({note_path})\n")
+                tags_file.write("\n")
+        #print(f"Indice dei tag aggiornato con successo in '{os.path.relpath(TAGS_INDEX_FILE, VAULT_DIR)}'.")
+    except Exception as e:
+        print(f"Errore durante l'aggiornamento del file dei tag: {e}")
+
+
 def UpdateIndex():
     """
-    Aggiorna l'indice MAIN_INDEX_FILE con tutte le note presenti nel vault.
-    L'indice è strutturato per anno e include i link alle note.
-    Aggiorna il TAGS_INDEX_FILE leggendo i tag da ogni nota che contiene il blocco "## tags".
+    Aggiorna gli indici principali e dei tag leggendo le note presenti nel vault.
     """
     # Check di consistenza del nome preventivo per evitare nomi di file manuali non corretti
     CheckConsistency()
@@ -143,18 +249,6 @@ def UpdateIndex():
             print(f"Errore: La directory '{VAULT_DIR}' non esiste.")
             return
 
-        # Controlla se MAIN_INDEX_FILE esiste, altrimenti crealo
-        if not os.path.exists(MAIN_INDEX_FILE):
-            with open(MAIN_INDEX_FILE, "w", encoding="utf-8") as index_file:
-                index_file.write("# Indice Principale\n\n")
-            print(f"File '{MAIN_INDEX_FILE}' creato con successo.")
-            
-        # Controlla se TAGS_INDEX_FILE esiste, altrimenti crealo
-        if not os.path.exists(TAGS_INDEX_FILE):
-            with open(TAGS_INDEX_FILE, "w", encoding="utf-8") as tags_file:
-                tags_file.write("# Indice TAGS\n\n")
-            print(f"File '{MAIN_INDEX_FILE}' creato con successo.")
-
         # Dizionario per organizzare le note per anno
         notes_by_year = {}
         tags_data = {}  # Dizionario per organizzare i tag e le note associate
@@ -164,16 +258,16 @@ def UpdateIndex():
             for file in files:
                 if file.endswith(".md"):  # Considera solo i file Markdown
                     file_path = os.path.join(root, file)
-                    relative_path = os.path.relpath(file_path, VAULT_DIR)
+                    relative_path = os.path.relpath(file_path, VAULT_DIR).replace("\\", "/")
 
                     # Estrai anno e nome del file
-                    parts = relative_path.split(os.sep)
+                    parts = relative_path.split("/")
                     if len(parts) >= 2:  # Assicura che ci sia almeno una cartella (anno)
                         year = parts[0]
                         note_name = parts[-1]
                         if year not in notes_by_year:
                             notes_by_year[year] = []
-                        notes_by_year[year].append((note_name, relative_path.replace("\\", "/")))
+                        notes_by_year[year].append((note_name, relative_path))
 
                     # Leggi i tag dalla nota se contiene il blocco "## tags"
                     with open(file_path, "r", encoding="utf-8") as note_file:
@@ -188,38 +282,18 @@ def UpdateIndex():
                                         tag = content[j].strip().lstrip("- ").strip()
                                         if tag not in tags_data:
                                             tags_data[tag] = []
-                                        tags_data[tag].append(relative_path.replace("\\", "/"))
+                                        tags_data[tag].append(relative_path)
                                     elif content[j].strip().startswith("## "):  # Fine del blocco ## tags
                                         break
                                     j += 1
                                 break
 
-        # Scrivi l'indice in MAIN_INDEX_FILE
-        with open(MAIN_INDEX_FILE, "w", encoding="utf-8") as index_file:
-            for year, notes in sorted(notes_by_year.items()):
-                # Scrivi il titolo dell'anno
-                index_file.write(f"# {year}\n\n")
-                for note_name, note_path in sorted(notes):
-                    # Estrai MM-DD dal nome del file
-                    date_part = note_name.split(".")[0][5:]  # Prende MM-DD
-                    index_file.write(f"- [{date_part}]({note_path})\n")
-                index_file.write("\n")  # Aggiungi una riga vuota tra gli anni
-
-        print(f"Indice aggiornato con successo in '{MAIN_INDEX_FILE}'.")
-
-        # Scrivi l'indice dei tag in TAGS_INDEX_FILE
-        with open(TAGS_INDEX_FILE, "w", encoding="utf-8") as tags_file:
-            tags_file.write("# Indice TAGS\n\n")
-            for tag, notes in sorted(tags_data.items()):
-                tags_file.write(f"## {tag}\n\n")
-                for note_path in sorted(notes):
-                    tags_file.write(f"- [{os.path.basename(note_path)}]({note_path})\n")
-                tags_file.write("\n")
-
-        print(f"Indice dei tag aggiornato con successo in '{TAGS_INDEX_FILE}'.")
+        # Aggiorna i file degli indici
+        UpdateMainIndex(notes_by_year)
+        UpdateTagsIndex(tags_data)
 
     except Exception as e:
-        print(f"Errore durante l'aggiornamento dell'indice: {e}")
+        print(f"Errore durante l'aggiornamento degli indici: {e}")
 
 def AddNewNote():
     """
@@ -243,7 +317,7 @@ def AddNewNote():
 
     # Controlla se la nota esiste già
     if os.path.exists(note_path):
-        print(f"La nota '{note_path}' esiste già. Nessuna azione necessaria.")
+        print(f"La nota '{os.path.relpath(note_path, VAULT_DIR)}' esiste già. Nessuna azione necessaria.")
         return
 
     # Copia il template nella posizione della nuova nota
@@ -262,7 +336,7 @@ def AddNewNote():
         with open(note_path, "w", encoding="utf-8") as file:
             file.write(content)
 
-        print(f"Nota creata con successo: {note_path}")
+        print(f"Nota creata con successo: {os.path.relpath(note_path, VAULT_DIR)}")
 
     except Exception as e:
         print(f"Errore durante la creazione della nota: {e}")
@@ -292,9 +366,9 @@ def InitVault():
         # Crea la cartella 'myjournal' se non esiste
         if not os.path.exists(vault_dir):
             os.makedirs(vault_dir)
-            print(f"La cartella '{vault_dir}' è stata creata con successo.")
+            print(f"La cartella '{os.path.relpath(vault_dir, SCRIPT_DIR)}' è stata creata con successo.")
         else:
-            print(f"La cartella '{vault_dir}' esiste già.")
+            print(f"La cartella '{os.path.relpath(vault_dir, SCRIPT_DIR)}' esiste già.")
 
         # Copia tutto il contenuto della cartella setup-vault fuori dalla cartella 'myjournal'
         for root, dirs, files in os.walk(setup_dir):
@@ -307,15 +381,13 @@ def InitVault():
                 dest_file = os.path.join(target_dir, file)
                 # Controlla se il file esiste già nella destinazione
                 if os.path.exists(dest_file):
-                    print(f"Il file '{dest_file}' esiste già. Salto la copia.")
+                    print(f"Il file '{os.path.relpath(dest_file, VAULT_DIR)}' esiste già. Salto la copia.")
                     continue
                 shutil.copy(src_file, dest_file)
         print(f"File di setup per VSCode copiati con successo")
-        
-        print(f"Enjoy your new journal vault! <3 ")
     
     except Exception as e:
-        print(f"Errore durante la costruzione del Vault: {e}")
+        print(f"Errore durante la costruzione del Vault: {os.path.relpath(e.filename, VAULT_DIR)}")
         sys.exit(1)
         
     # Aggiunge la prima nota
@@ -344,7 +416,7 @@ def AddTagToNoteName(tagname, notename):
 
     # Se la nota non è stata trovata, interrompi
     if not note_path:
-        print(f"Errore: La nota '{notename}' non è stata trovata nel repository.")
+        print(f"Errore: La nota '{os.path.relpath(notename, VAULT_DIR)}' non è stata trovata nel repository.")
         sys.exit(1)
 
     try:
@@ -357,12 +429,23 @@ def AddTagToNoteName(tagname, notename):
         for i, line in enumerate(content):
             if line.strip() == "## tags":
                 tags_section_found = True
-                # Controlla se ci sono già tag sotto la sezione ## tags
+                # Controlla se il tag è già presente
                 j = i + 1
-                while j < len(content) and content[j].startswith("- "):
+                while j < len(content):
+                    line = content[j].strip()  # Rimuove spazi e caratteri di nuova linea
+                    if not line:  # Salta le righe vuote
+                        j += 1
+                        continue
+                    if line.startswith("- "):  # Controlla se la riga è un elemento dell'elenco
+                        existing_tag = line.lstrip("- ").strip()
+                        if existing_tag.lower() == tagname.lower():  # Confronto case-insensitive
+                            print(f"Il tag '{tagname}' è già presente nella nota '{notename}'. Nessuna azione necessaria.")
+                            return
+                    elif line.startswith("## "):  # Fine del blocco ## tags
+                        break
                     j += 1
-                # Aggiungi uno spazio e il nuovo tag all'elenco puntato
-                content.insert(j, f"\n- {tagname}\n")
+                # Aggiungi il nuovo tag all'elenco puntato
+                content.insert(j, f"\n- {tagname}")
                 break
 
         # Se la sezione ## tags non esiste, creala in fondo al file
@@ -375,7 +458,8 @@ def AddTagToNoteName(tagname, notename):
             file.writelines(content)
 
         # Aggiorna il tag-index.md con le note che contengono il tag
-        UpdateTagIndex(tagname, note_path)
+        UpdateIndex()
+        FixNoteTagSpaces(note_path)
 
         print(f"Tag '{tagname}' aggiunto con successo alla nota '{notename}'.")
 
@@ -449,6 +533,7 @@ def main():
     if args.init:
         print(f"Creazione di un vault di partenza...")
         InitVault()
+        print(f"Enjoy your new journal vault! (^._.^)ﾉ ")
     
     elif args.new:
         print("Creazione di una nuova nota...")
@@ -457,11 +542,12 @@ def main():
     elif args.update:
         print("Aggiornamento dell'indice...")
         UpdateIndex()
+        print("Indici (main e tags) aggiornati! (=^･ｪ･^=)ﾉ")
     
     elif args.check_consistency:
         print("Check dei nomi in corso...")
         CheckConsistency()
-        print("Check completato. All fine! >(^_^)>")
+        print("Check completato. All fine! =^._.^=ﾉ")
         
     elif args.fast_tag:
         if not args.fast_tag:
