@@ -93,18 +93,23 @@ Es: inserimento di un elemento centrato se necessario
 
 ## Eseguire il make python
 
-É un eseguibile che indipendentemente da dove ci si trova quando viene lanciato si entra nel progetto, e genera dentro la cartella `vault/build` l'output generato.
+É un eseguibile che agisce direttamente sulle note, modificando il contenuto di alcuni blocchi come ad esempio `## tags` crea resoconti ed effettua check di consistenza.
 
 ```bash
 # help
 \scripts\make.py -h
 # inizializzazione repo
 \scripts\make.py -i
-# aggiunta di una nota md
-\scripts\make.py -s nome-macro-argomento/nome-nuova-nota.md
-# generazione di pdf
-\scripts\make.py -n nome-nota-src.md output.pdf
-\scripts\make.py -g nome-macro-argomento output.pdf
-\scripts\make.py -a output.pdf
-\scripts\make.py -c output.pdf
+# aggiunta di una nota per il giorno corrente
+\scripts\make.py -n
+# nel caso di aggiunte manuali é consigliato
+\scripts\make.py -cc
+\scripts\make.py -u
+# aggiungere un tag alla nota corrente
+\scripts\make.py -ft nometag
+\scripts\make.py -t nometag nomenota
+\scripts\make.py -lt
+# crea e distruggi i resoconti settimanali
+\scripts\make.py -w
+\scripts\make.py -cw
 ```

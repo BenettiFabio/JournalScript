@@ -146,7 +146,13 @@ def CheckConsistency():
         duplicate_notes = []  # Lista per raccogliere i file con nomi duplicati
 
         for root, dirs, files in os.walk(VAULT_DIR):
+            # Ignora la cartella weeks
+            if "weeks" in root:
+                continue
             for file in files:
+                # Escludi i file weekly
+                if file.startswith("weekly") or re.match(r"\d{4}weekly\d{2}\.md", file):
+                    continue
                 if file.endswith(".md"):
                     if(file == "main-index.md" or file == "tags-index.md"):
                         continue
@@ -255,7 +261,13 @@ def UpdateIndex():
 
         # Scansiona il VAULT_DIR per trovare tutte le note
         for root, dirs, files in os.walk(VAULT_DIR):
+            # Ignora la cartella weeks
+            if "weeks" in root:
+                continue
             for file in files:
+                # Escludi i file weekly
+                if file.startswith("weekly") or re.match(r"\d{4}weekly\d{2}\.md", file):
+                    continue
                 if file.endswith(".md"):  # Considera solo i file Markdown
                     file_path = os.path.join(root, file)
                     relative_path = os.path.relpath(file_path, VAULT_DIR).replace("\\", "/")
@@ -511,32 +523,17 @@ def TagList():
         
 def WeekLog():
     """
-    Genera un file settimanale con le note dell'ultima settimana (da lunedì a domenica).
-    Se il file esiste già, lo aggiorna.
+    Genera file settimanali con le note raggruppate per settimana (da lunedì a domenica).
+    Crea un file per ogni settimana presente nel vault.
     """
     # Check di consistenza preventivo
     CheckConsistency()
 
     try:
-        # Calcola l'inizio e la fine della settimana corrente
-        today = date.today()
-        start_of_week = today - timedelta(days=today.weekday())  # Lunedì della settimana corrente
-        end_of_week = start_of_week + timedelta(days=6)  # Domenica della settimana corrente
+        # Dizionario per raggruppare le note per settimana
+        weeks_data = {}
 
-        # Calcola il numero della settimana e l'anno
-        week_number = start_of_week.isocalendar()[1]
-        year = start_of_week.year
-
-        # Percorso della cartella weeks
-        weeks_dir = os.path.join(VAULT_DIR, str(year), "weeks")
-        os.makedirs(weeks_dir, exist_ok=True)
-
-        # Nome del file settimanale
-        weekly_filename = f"{year}weekly{week_number:02d}.md"
-        weekly_file_path = os.path.join(weeks_dir, weekly_filename)
-
-        # Cerca le note dell'ultima settimana
-        notes_in_week = []
+        # Scansiona il VAULT_DIR per trovare tutte le note
         for root, dirs, files in os.walk(VAULT_DIR):
             # Ignora la cartella weeks
             if "weeks" in root:
@@ -549,32 +546,71 @@ def WeekLog():
                     file_path = os.path.join(root, file)
                     file_date_str = os.path.basename(file).split(".")[0]  # Estrai YYYY-MM-DD
                     try:
+                        # Converte la data del file in un oggetto datetime
                         file_date = datetime.strptime(file_date_str, "%Y-%m-%d").date()
-                        if start_of_week <= file_date <= end_of_week:
-                            notes_in_week.append((file_date, file_path))
+                        # Calcola il lunedì della settimana corrente
+                        start_of_week = file_date - timedelta(days=file_date.weekday())
+                        # Raggruppa le note per settimana
+                        if start_of_week not in weeks_data:
+                            weeks_data[start_of_week] = []
+                        weeks_data[start_of_week].append(file_path)
                     except ValueError:
                         continue  # Ignora file con nomi non validi
 
         # Se non ci sono note, interrompi
-        if not notes_in_week:
-            print("Nessuna nota trovata per l'ultima settimana.")
+        if not weeks_data:
+            print("Nessuna nota trovata nel vault.")
             return
 
-        # Ordina le note per data
-        notes_in_week.sort()
+        # Ordina le settimane
+        sorted_weeks = sorted(weeks_data.keys())
 
-        # Crea o aggiorna il file settimanale
-        with open(weekly_file_path, "w", encoding="utf-8") as weekly_file:
-            weekly_file.write(f"# Week {week_number} ({start_of_week} - {end_of_week})\n\n")
-            for note_date, note_path in notes_in_week:
-                note_name = os.path.basename(note_path)
-                relative_path = os.path.relpath(note_path, VAULT_DIR).replace("\\", "/")
-                weekly_file.write(f"- [{note_name}]({relative_path})\n")
-        
-        print(f"File settimanale aggiornato: {os.path.relpath(weekly_file_path, VAULT_DIR)}")
+        # Genera un file settimanale per ogni settimana
+        for start_of_week in sorted_weeks:
+            end_of_week = start_of_week + timedelta(days=6)  # Calcola la domenica della settimana
+            week_number = start_of_week.isocalendar()[1]  # Numero della settimana
+            year = start_of_week.year
+
+            # Percorso della cartella weeks
+            weeks_dir = os.path.join(VAULT_DIR, str(year), "weeks")
+            os.makedirs(weeks_dir, exist_ok=True)
+
+            # Nome del file settimanale
+            weekly_filename = f"{year}weekly{week_number:02d}.md"
+            weekly_file_path = os.path.join(weeks_dir, weekly_filename)
+
+            # Ordina le note della settimana per data
+            notes_in_week = sorted(weeks_data[start_of_week])
+
+            # Crea o aggiorna il file settimanale
+            with open(weekly_file_path, "w", encoding="utf-8") as weekly_file:
+                weekly_file.write(f"# Week {week_number} ({start_of_week} - {end_of_week})\n\n")
+                for note_path in notes_in_week:
+                    note_name = os.path.basename(note_path)
+                    relative_path = os.path.relpath(note_path, VAULT_DIR).replace("\\", "/")
+                    weekly_file.write(f"- [{note_name}]({relative_path})\n")
+
+            print(f"File settimanale aggiornato: {os.path.relpath(weekly_file_path, VAULT_DIR)}")
 
     except Exception as e:
-        print(f"Errore durante la generazione del file settimanale: {e}")
+        print(f"Errore durante la generazione dei file settimanali: {e}")
+
+
+def DeleteWeekLog():
+    """
+    Elimina tutte le cartelle 'weeks' presenti all'interno delle cartelle 'YYYY/'.
+    """
+    try:
+        # Scansiona il VAULT_DIR per trovare tutte le cartelle 'weeks'
+        for root, dirs, files in os.walk(VAULT_DIR):
+            for dir_name in dirs:
+                if dir_name == "weeks":
+                    weeks_dir_path = os.path.join(root, dir_name)
+                    # Elimina la cartella 'weeks' e tutto il suo contenuto
+                    shutil.rmtree(weeks_dir_path)
+                    print(f"Cartella eliminata: {os.path.relpath(weeks_dir_path, VAULT_DIR)}")
+    except Exception as e:
+        print(f"Errore durante l'eliminazione delle cartelle 'weeks': {e}")
 
 
 ## MAIN FUNCTION ##
@@ -593,7 +629,8 @@ def main():
     parser.add_argument("-ft", "--fast-tag",                        nargs=1,        metavar="TAGNAME",  help="Inserisce alla nota di oggi")
     parser.add_argument("-t", "--tag",                              nargs=2,        metavar=("TAGNAME", "DAY-NOTE"),  help="Inserisce alla nota specificata il tag scelto")
     parser.add_argument("-lt", "--list-tag",action="store_true",    help="lista dei tag presenti in tutto il vault")
-    parser.add_argument("-w", "--week",     action="store_true",    help="effettua un resoconto delle note dell'ultima settimana in una nota chiamata weeklyXX.md")
+    parser.add_argument("-w", "--week",     action="store_true",    help="effettua un resoconto delle note dell'ultima settimana in una nota chiamata YYYYweeklyWW.md")
+    parser.add_argument("-cw", "--clean-week",action="store_true",  help="effettua una pulizia di tutte le note settimanali per pulire il repo dai resoconti ripetitivi")
     
     # Parsing degli argomenti
     args = parser.parse_args()
@@ -602,7 +639,7 @@ def main():
     if args.init:
         print(f"Creazione di un vault di partenza...")
         InitVault()
-        print(f"Enjoy your new journal vault! (^._.^)ﾉ ")
+        print(f"Enjoy your new journal vault! =^._.^=ﾉ")
     
     elif args.new:
         print("Creazione di una nuova nota...")
@@ -616,7 +653,7 @@ def main():
     elif args.check_consistency:
         print("Check dei nomi in corso...")
         CheckConsistency()
-        print("Check completato. All fine! =^._.^=ﾉ")
+        print("Check completato. All fine! ₍^..^₎𐒡")
         
     elif args.fast_tag:
         if not args.fast_tag:
@@ -641,6 +678,13 @@ def main():
     elif args.week:
         print("Genero i Weekly log...")
         WeekLog()
+        print("Ora ogni anno ha i suoi weekly Log!. =^._.^=ﾉ")
+        
+    elif args.clean_week:
+        print("Pulizia dei Weekly log...")
+        DeleteWeekLog()
+        print("Weekly log eliminati!. (=^･ｪ･^=)ﾉ")
+
         
     else:
         print("Errore: nessuna opzione valida selezionata.")
