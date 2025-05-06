@@ -524,7 +524,7 @@ def TagList():
 def WeekLog():
     """
     Genera file settimanali con le note raggruppate per settimana (da lunedì a domenica).
-    Crea un file per ogni settimana presente nel vault.
+    Crea un file per ogni settimana presente nel vault, unendo il contenuto delle note della settimana.
     """
     # Check di consistenza preventivo
     CheckConsistency()
@@ -579,22 +579,43 @@ def WeekLog():
             weekly_filename = f"{year}weekly{week_number:02d}.md"
             weekly_file_path = os.path.join(weeks_dir, weekly_filename)
 
-            # Ordina le note della settimana per data
-            notes_in_week = sorted(weeks_data[start_of_week])
+            # Dizionario per raggruppare il contenuto delle note per sezione
+            sections = {}
 
-            # Crea o aggiorna il file settimanale
+            # Unisci il contenuto delle note della settimana
+            notes_in_week = sorted(weeks_data[start_of_week])
+            for note_path in notes_in_week:
+                with open(note_path, "r", encoding="utf-8") as note_file:
+                    current_section = "## Unsorted"  # Sezione predefinita per contenuti senza intestazione
+                    for line in note_file:
+                        stripped_line = line.strip()
+                        if stripped_line.startswith("# "):  # Ignora i titoli delle note giornaliere
+                            continue
+                        if stripped_line.startswith("## "):  # Identifica una nuova sezione
+                            current_section = stripped_line
+                            if current_section not in sections:
+                                sections[current_section] = []
+                            continue  # Non aggiungere il titolo della sezione al contenuto
+                        sections.setdefault(current_section, []).append(line)
+
+            # Scrivi il contenuto unito nel file settimanale
             with open(weekly_file_path, "w", encoding="utf-8") as weekly_file:
                 weekly_file.write(f"# Week {week_number} ({start_of_week} - {end_of_week})\n\n")
-                for note_path in notes_in_week:
-                    note_name = os.path.basename(note_path)
-                    relative_path = os.path.relpath(note_path, VAULT_DIR).replace("\\", "/")
-                    weekly_file.write(f"- [{note_name}]({relative_path})\n")
+                written_sections = set()  # Traccia delle sezioni già scritte
+                for section, content in sections.items():
+                    if section not in written_sections:  # Scrivi la sezione solo se non è già stata scritta
+                        weekly_file.write(f"{section}\n")
+                        written_sections.add(section)  # Aggiungi la sezione al set
+                    weekly_file.writelines(content)
+                    # weekly_file.write("\n")  # Aggiungi una riga vuota tra le sezioni
+
+            # Chiama la funzione per correggere gli spazi nella sezione ## tags
+            FixNoteTagSpaces(weekly_file_path)
 
             print(f"File settimanale aggiornato: {os.path.relpath(weekly_file_path, VAULT_DIR)}")
 
     except Exception as e:
         print(f"Errore durante la generazione dei file settimanali: {e}")
-
 
 def DeleteWeekLog():
     """
