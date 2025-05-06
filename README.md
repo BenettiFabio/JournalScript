@@ -13,12 +13,16 @@ Consiglio: genera un repo vuoto, e iniserisci questo repo come un sottomodulo gi
    myjournal/
    ├── main-index.md
    ├── 2024/
+   │   ├── weeks/
    │   ├── 2024-04-27.md
    │   ├── 2024-05-2.md
    │   └── 2024-05-31.md
    ├── 2025/
+   │   ├── weeks/
    │   └── 2024-01-31.md
    └── YYYY/
+       ├── weeks/
+       │   └── YYYYweeklyWW.md
        └── YYYY-MM-DD.md
    ```
 
@@ -26,7 +30,7 @@ Consiglio: genera un repo vuoto, e iniserisci questo repo come un sottomodulo gi
 
    > <span style="color: red;">ATT!:</span> Ogni nuova pagina aggiunta viene inserita direttamente nell'indice totale (`main-index.md`) se viene creata mediante l'apposito comando `-n --new` altrimenti lanciare `-u --update` per aggiornare l'indice automaticamente.
 
-1. `main-index.md`: Questo file è l'indice di tutta la struttura, andrà a linkare tutte le pagine del progetto in modo da poterle trovare facilmente nel tempo.
+1. `main-index.md` e `tags-index`: Questi files contengono l'indice di tutta la struttura, andranno a linkare tutte le pagine del progetto in modo da poterle trovare facilmente nel tempo divise per anni e per tags.
 
 2. **myjournal:** è il vault contenente tutte le note, i nomi delle note sono divisi per anno attraverso sottocartelle. Mediante i nomi strutturati come sopra vengono automaticamente ordinati alfabeticamente quindi giá facilmente individuabili.
 
