@@ -75,13 +75,13 @@ def UpdateTagIndex(tagname, note_path):
     except Exception as e:
         print(f"Errore durante l'aggiornamento del file dei tag: {e}")
 
-def FixNoteTagSpaces(notename):
+def FixNoteSpaces(notename):
     """
-    Legge la nota specificata, analizza la sezione ## tags e rimuove eventuali righe vuote
-    tra gli elementi dell'elenco.
+    Ottimizza gli spazi in una nota Markdown seguendo le regole:
+    - Ogni blocco di testo (titolo, elenco o contenuto) deve essere circondato da una riga vuota.
+    - Tra due titoli consecutivi (es. # e ##, ## e ##) senza contenuto in mezzo ci deve essere una riga vuota.
     """
     try:
-        
         if not notename:
             print(f"Errore: La nota '{os.path.relpath(notename, VAULT_DIR)}' non è stata trovata.")
             return
@@ -90,45 +90,51 @@ def FixNoteTagSpaces(notename):
         with open(notename, "r", encoding="utf-8") as file:
             content = file.readlines()
 
-        # Cerca la sezione ## tags
-        tags_section_found = False
         new_content = []
-        in_tags_section = False
-
-        for line in content:
+        previous_line = ""
+        for i, line in enumerate(content):
             stripped_line = line.strip()
 
-            if stripped_line == "## tags":
-                tags_section_found = True
-                in_tags_section = True
-                new_content.append(line)  # Mantieni il titolo ## tags
+            # Gestisci righe vuote prima di un titolo
+            if stripped_line.startswith("#"):
+                if previous_line.strip():  # Se la riga precedente non è vuota, aggiungi una riga vuota
+                    new_content.append("\n")
+                new_content.append(line)
+                previous_line = line
                 continue
 
-            if in_tags_section:
-                if stripped_line.startswith("## "):  # Fine della sezione ## tags
-                    in_tags_section = False
+            # Gestisci righe vuote prima di un elenco
+            if stripped_line.startswith("- ") or stripped_line.startswith("[ ]"):
+                if previous_line.strip() and not previous_line.strip().startswith("- ") and not previous_line.strip().startswith("[ ]"):
+                    new_content.append("\n")
+                new_content.append(line)
+                previous_line = line
+                continue
 
-                elif stripped_line.startswith("- "):  # Elemento dell'elenco
+            # Gestisci righe vuote dopo un titolo o un elenco
+            if previous_line.strip().startswith("#") or previous_line.strip().startswith("- ") or previous_line.strip().startswith("[ ]"):
+                if stripped_line:  # Se la riga corrente non è vuota, aggiungi una riga vuota
+                    new_content.append("\n")
+
+            # Gestisci righe vuote consecutive
+            if not stripped_line:
+                if previous_line.strip():  # Aggiungi una sola riga vuota
                     new_content.append(line)
-                    continue
+                previous_line = line
+                continue
 
-                elif not stripped_line:  # Riga vuota, ignorala
-                    continue
+            # Aggiungi la riga corrente
+            new_content.append(line)
+            previous_line = line
 
-            new_content.append(line)  # Mantieni le righe fuori dalla sezione ## tags
-
-        if not tags_section_found:
-            #print(f"Avviso: La sezione ## tags non è presente nella nota '{os.path.relpath(notename, VAULT_DIR)}'. Nessuna azione necessaria.")
-            return
-
-        # Scrivi il contenuto aggiornato nella nota
+        # Scrivi il contenuto ottimizzato nella nota
         with open(notename, "w", encoding="utf-8") as file:
             file.writelines(new_content)
 
-        #print(f"Spazi extra rimossi dalla sezione ## tags nella nota '{os.path.relpath(notename, VAULT_DIR)}'.")
+        print(f"Spazi ottimizzati nella nota '{os.path.relpath(notename, VAULT_DIR)}'.")
 
     except Exception as e:
-        print(f"Errore durante la correzione degli spazi nella sezione ## tags: {e}")
+        print(f"Errore durante l'ottimizzazione degli spazi nella nota: {e}")
 
 #########################
 ## PRINCIPAL FUNCTIONS ##
@@ -471,7 +477,7 @@ def AddTagToNoteName(tagname, notename):
 
         # Aggiorna il tag-index.md con le note che contengono il tag
         UpdateIndex()
-        FixNoteTagSpaces(note_path)
+        FixNoteSpaces(note_path)
 
         print(f"Tag '{tagname}' aggiunto con successo alla nota '{notename}'.")
 
@@ -592,15 +598,29 @@ def WeekLog():
                         if stripped_line.startswith("# "):  # Ignora i titoli delle note giornaliere
                             continue
                         if stripped_line.startswith("## "):  # Identifica una nuova sezione
+                            if stripped_line == "## tags":  # Salta la sezione ## tags
+                                current_section = None
+                                continue
                             current_section = stripped_line
                             if current_section not in sections:
                                 sections[current_section] = []
                             continue  # Non aggiungere il titolo della sezione al contenuto
-                        sections.setdefault(current_section, []).append(line)
+                        if current_section:  # Aggiungi contenuto solo se la sezione è valida
+                            sections.setdefault(current_section, []).append(line)
 
             # Scrivi il contenuto unito nel file settimanale
             with open(weekly_file_path, "w", encoding="utf-8") as weekly_file:
+                # Scrivi il titolo della settimana
                 weekly_file.write(f"# Week {week_number} ({start_of_week} - {end_of_week})\n\n")
+                
+                # Aggiungi l'elenco puntato con i link alle note della settimana
+                for note_path in notes_in_week:
+                    note_name = os.path.basename(note_path)
+                    relative_path = os.path.relpath(note_path, weeks_dir).replace("\\", "/")
+                    weekly_file.write(f"- [{note_name.split('.')[0]}]({relative_path})\n")
+                weekly_file.write("\n")
+                
+                # Scrivi le sezioni raggruppate
                 written_sections = set()  # Traccia delle sezioni già scritte
                 for section, content in sections.items():
                     if section not in written_sections:  # Scrivi la sezione solo se non è già stata scritta
@@ -609,8 +629,7 @@ def WeekLog():
                     weekly_file.writelines(content)
                     # weekly_file.write("\n")  # Aggiungi una riga vuota tra le sezioni
 
-            # Chiama la funzione per correggere gli spazi nella sezione ## tags
-            FixNoteTagSpaces(weekly_file_path)
+            FixNoteSpaces(weekly_file_path)
 
             print(f"File settimanale aggiornato: {os.path.relpath(weekly_file_path, VAULT_DIR)}")
 

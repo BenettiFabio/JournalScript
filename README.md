@@ -36,7 +36,7 @@ Consiglio: genera un repo vuoto, e iniserisci questo repo come un sottomodulo gi
 
 3. **Assets:** La cartella assets contiene tutti gli allegati (documenti e immagini) utili alle varie note, dentro la cartella `assets/YYYY/` dove `YYYY` sono l'anno a cui fanno riferimento. ci sono i relativi docs, imgs, ... la struttura della cartella `assets/` deve essere identica a quella fuori in modo da mantenere semplice il ritrovamento dei file e documenti salvati.
 
-4. **JournalScript:** Questo sottomodulo contiene tutti gli script e le automazioni che possono essere eseguiti nel progetto. in modo da aggiungere note standardizzate, comandi di "segnalazione" come TAG, e automazioni come la gestione dei `[ ] TODO`.
+4. **JournalScript:** Questo sottomodulo contiene tutti gli script e le automazioni che possono essere eseguiti nel progetto. in modo da aggiungere note standardizzate, comandi di "segnalazione" come TAG, e automazioni come la gestione dei weekly log.
 
 # Dipendenze utili VSCode
 
@@ -60,7 +60,7 @@ Consiglio: genera un repo vuoto, e iniserisci questo repo come un sottomodulo gi
 
 # Legenda ed aiuto alla coerenza
 
-Per come é strutturata l'architettura possono essere utilizzati TAG e indici di diversa importanza per facilitare l'utilizzo e la comprensione per l'utente e **possono essere personalizzate modificando il make.py !!**.
+Per come é strutturata l'architettura possono essere utilizzati TAG e indici di diversa importanza per facilitare l'utilizzo e la comprensione per l'utente e **possono essere personalizzate modificando il make!!**.
 
 Questa é la lista usata di default:
 
@@ -80,20 +80,6 @@ All'interno di una nota é supportato un solo titolo iniziale contenente la data
 - `## log` Log di un evento/azione/riunione
 - `## bug` Bug da correggere
 - `## tags` Se si vuole taggare la nota con un certo evento (vedi il comando `-t --tag` per maggiori info)
-
-_Es:_ inserimento immagine se necessario
-
-```markdown
-![Titolo immagine](../assets/macro-arg/imgs/nome-immagine.png){width=\linewidth}
-```
-
-Es: inserimento di un elemento centrato se necessario
-
-```markdown
-<div style="text-align:center;">
-<!-- something -->
-</div>
-```
 
 ## Eseguire il make python
 
