@@ -60,17 +60,7 @@ Consiglio: genera un repo vuoto, e iniserisci questo repo come un sottomodulo gi
 
 # Legenda ed aiuto alla coerenza
 
-Per come é strutturata l'architettura possono essere utilizzati TAG e indici di diversa importanza per facilitare l'utilizzo e la comprensione per l'utente e **possono essere personalizzate modificando il make!!**.
-
-Questa é la lista usata di default:
-
-- `[ ]` To-do
-- `[x]` Completato
-- `[!]` Urgente
-- `[-]` Annullato / scartato
-- `[>]` Rimandato
-- `[<]` Ripreso
-- `[~]` In corso / WIP
+Per come é strutturata l'architettura possono essere utilizzati TAG e indici di diversa importanza per facilitare l'utilizzo e la comprensione per l'utente e
 
 All'interno di una nota é supportato un solo titolo iniziale contenente la data del giorno a cui é riferito ma possono esserci anche altri sottotitoli per fare riferimento a specificitá referite a quel giorno
 
