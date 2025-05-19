@@ -131,7 +131,7 @@ def FixNoteSpaces(notename):
         with open(notename, "w", encoding="utf-8") as file:
             file.writelines(new_content)
 
-        print(f"Spazi ottimizzati nella nota '{os.path.relpath(notename, VAULT_DIR)}'.")
+        # print(f"Spazi ottimizzati nella nota '{os.path.relpath(notename, VAULT_DIR)}'.")
 
     except Exception as e:
         print(f"Errore durante l'ottimizzazione degli spazi nella nota: {e}")
