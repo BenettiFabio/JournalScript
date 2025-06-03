@@ -66,9 +66,9 @@ All'interno di una nota é supportato un solo titolo iniziale contenente la data
 
 - `## note` Nota generica
 - `## idea` Idea da esplorare
-- `## ref` Riferimento esterno (link, paper...)
-- `## log` Log di un evento/azione/riunione
-- `## bug` Bug da correggere
+- `## refs` Riferimento esterno (link, paper...)
+- `## logs` Log di un evento/azione/riunione
+- `## bugs` Bug da correggere
 - `## tags` Se si vuole taggare la nota con un certo evento (vedi il comando `-t --tag` per maggiori info)
 
 ## Eseguire il make python
