@@ -14,6 +14,14 @@ YEAR_DIR = Path(os.path.join(VAULT_DIR, str(today.year))).resolve()  # Directory
 MAIN_INDEX_FILE = Path(os.path.join(VAULT_DIR, "main-index.md")).resolve()  # Path del file principale
 TAGS_INDEX_FILE = Path(os.path.join(VAULT_DIR, "tags-index.md")).resolve()  # Path del file principale
 
+## TAGS BLOCCATI ##
+# Questi sottotitoli in una nota non possono essere usati indipendentemente per separare le note
+# perche' hanno valenza dentro lo script
+B_SUBTITLE = "## "
+B_UNSORTED = "## unsorted"  # Sezione per le note non ordinate (weekly)
+B_NOTE = "## note"  # Sezione per le note giornaliere
+B_TAGS = "## tags"  # Sezione dei tag
+B_NEXT = "## next"  # Sezione per le note che verranno proiettate al giorno successivo
 
 #######################
 ## UTILITY FUNCTIONS ##
@@ -200,6 +208,7 @@ def CheckConsistency():
 def UpdateMainIndex(notes_by_year):
     """
     Aggiorna il file MAIN_INDEX_FILE con tutte le note presenti nel vault, organizzate per anno.
+    Le note più recenti saranno in cima alla lista di ogni anno.
     """
     # Controlla se MAIN_INDEX_FILE esiste, altrimenti crealo
     if not os.path.exists(MAIN_INDEX_FILE):
@@ -207,21 +216,19 @@ def UpdateMainIndex(notes_by_year):
             index_file.write("# Indice Principale\n\n")
         print(f"File '{os.path.relpath(MAIN_INDEX_FILE, VAULT_DIR)}' creato con successo.")
         
-    
     try:
         with open(MAIN_INDEX_FILE, "w", encoding="utf-8") as index_file:
             index_file.write("# Indice Principale\n\n")
-            for year, notes in sorted(notes_by_year.items()):
+            for year, notes in sorted(notes_by_year.items(), reverse=True):
                 # Scrivi il titolo dell'anno
                 index_file.write(f"# {year}\n\n")
-                for note_name, note_path in sorted(notes):
-                    # Estrai MM-DD dal nome del file
-                    date_part = note_name.split(".")[0][5:]  # Prende MM-DD
-                    index_file.write(f"- [{date_part}]({note_path})\n")
-                index_file.write("\n")  # Aggiungi una riga vuota tra gli anni
-        #print(f"Indice principale aggiornato con successo in '{os.path.relpath(MAIN_INDEX_FILE, VAULT_DIR)}'.")
+                # Ordina le note dalla più recente alla meno recente
+                for note_name, note_path in sorted(notes, reverse=True):
+                    relative_path = os.path.relpath(note_path, VAULT_DIR).replace("\\", "/")
+                    index_file.write(f"- [{note_name}]({relative_path})\n")
+                index_file.write("\n")
     except Exception as e:
-        print(f"Errore durante l'aggiornamento del file principale: {e}")
+        print(f"Errore durante l'aggiornamento dell'indice principale: {e}")
 
 
 def UpdateTagsIndex(tags_data):
@@ -292,7 +299,7 @@ def UpdateIndex():
                         content = note_file.readlines()
                         tags_section_found = False
                         for i, line in enumerate(content):
-                            if line.strip() == "## tags":
+                            if line.strip() == B_TAGS:
                                 tags_section_found = True
                                 j = i + 1
                                 while j < len(content):
@@ -301,7 +308,7 @@ def UpdateIndex():
                                         if tag not in tags_data:
                                             tags_data[tag] = []
                                         tags_data[tag].append(relative_path)
-                                    elif content[j].strip().startswith("## "):  # Fine del blocco ## tags
+                                    elif content[j].strip().startswith(B_SUBTITLE):  # Fine del blocco ## tags
                                         break
                                     j += 1
                                 break
@@ -337,22 +344,58 @@ def AddNewNote():
     if os.path.exists(note_path):
         print(f"La nota '{os.path.relpath(note_path, VAULT_DIR)}' esiste già. Nessuna azione necessaria.")
         return
+    
+    # Prima di copiare il template estrae dalla nota piú recente il blocco ## next per le note che si vogliono ricordare dal giorno prima
+    md_files = []
+    for file in os.listdir(year_dir):
+        if file.endswith(".md") and file != note_filename:
+            match = re.match(r"(\d{4})-(\d{2})-(\d{2})\.md", file)
+            if match:
+                md_files.append(file)
+    md_files = sorted(md_files)
+    prev_note = None
+    for f in reversed(md_files):
+        if f < note_filename:
+            prev_note = os.path.join(year_dir, f)
+            break
+        
+    # Estrai il contenuto della sezione B_NEXT dalla nota precedente
+    next_content = []
+    if prev_note:
+        with open(prev_note, "r", encoding="utf-8") as prev_file:
+            lines = prev_file.readlines()
+        in_next = False
+        for line in lines:
+            if line.strip() == B_NEXT:
+                in_next = True
+                continue
+            if in_next and line.strip().startswith(B_SUBTITLE) and line.strip() != B_NEXT:
+                break
+            if in_next:
+                next_content.append(line)
+        if next_content and next_content[-1].strip() != "":
+            next_content.append("\n")
 
     # Copia il template nella posizione della nuova nota
     try:
         shutil.copy(template_path, note_path)
-
-        # Modifica il contenuto della nota per aggiornare il titolo
         with open(note_path, "r", encoding="utf-8") as file:
-            content = file.read()
+            content = file.readlines()
 
         # Sostituisci #TITOLO con #DD-MM-YYYY
         new_title = f"# {day}-{month}-{year}"
-        content = content.replace("# TITOLO", new_title)
+        content = [line.replace("# TITOLO", new_title) for line in content]
+
+        # Inserisci il contenuto di B_NEXT prima di ## note
+        if next_content:
+            for idx, line in enumerate(content):
+                if line.strip() == B_NOTE:
+                    content = content[:idx] + [B_NEXT + "\n"] + next_content + content[idx:]
+                    break
 
         # Scrivi il contenuto aggiornato nella nota
         with open(note_path, "w", encoding="utf-8") as file:
-            file.write(content)
+            file.writelines(content)
 
         print(f"Nota creata con successo: {os.path.relpath(note_path, VAULT_DIR)}")
 
@@ -445,7 +488,7 @@ def AddTagToNoteName(tagname, notename):
         # Cerca la sezione ## tags
         tags_section_found = False
         for i, line in enumerate(content):
-            if line.strip() == "## tags":
+            if line.strip() == B_TAGS:
                 tags_section_found = True
                 # Controlla se il tag è già presente
                 j = i + 1
@@ -459,7 +502,7 @@ def AddTagToNoteName(tagname, notename):
                         if existing_tag.lower() == tagname.lower():  # Confronto case-insensitive
                             print(f"Il tag '{tagname}' è già presente nella nota '{notename}'. Nessuna azione necessaria.")
                             return
-                    elif line.startswith("## "):  # Fine del blocco ## tags
+                    elif line.startswith(B_SUBTITLE):  # Fine del blocco ## tags
                         break
                     j += 1
                 # Aggiungi il nuovo tag all'elenco puntato
@@ -512,8 +555,8 @@ def TagList():
         # Cerca i titoli dei tag (## {tagname})
         tags = []
         for line in content:
-            if line.startswith("## "):  # Identifica i titoli dei tag
-                tagname = line.strip().replace("## ", "")
+            if line.startswith(B_SUBTITLE):  # Identifica i titoli dei tag
+                tagname = line.strip().replace(B_SUBTITLE, "")
                 tags.append(tagname)
 
         # Stampa la lista dei tag
@@ -527,10 +570,11 @@ def TagList():
     except Exception as e:
         print(f"Errore durante la lettura dei tag: {e}")
         
-def WeekLog():
+def WeekLog(year=None):
     """
     Genera file settimanali con le note raggruppate per settimana (da lunedì a domenica).
     Crea un file per ogni settimana presente nel vault, unendo il contenuto delle note della settimana.
+    Se l'anno non é specificato, usa l'anno corrente.
     """
     # Check di consistenza preventivo
     CheckConsistency()
@@ -538,10 +582,18 @@ def WeekLog():
     try:
         # Dizionario per raggruppare le note per settimana
         weeks_data = {}
+        # Determina l'anno da processare
+        if year is None:
+            year = date.today().year
+        year = str(year)
 
-        # Scansiona il VAULT_DIR per trovare tutte le note
-        for root, dirs, files in os.walk(VAULT_DIR):
-            # Ignora la cartella weeks
+        # Scansiona solo la cartella dell'anno specificato
+        year_dir = os.path.join(VAULT_DIR, year)
+        if not os.path.exists(year_dir):
+            print(f"Nessuna nota trovata per l'anno {year}.")
+            return
+
+        for root, dirs, files in os.walk(year_dir):
             if "weeks" in root:
                 continue
             for file in files:
@@ -565,7 +617,7 @@ def WeekLog():
 
         # Se non ci sono note, interrompi
         if not weeks_data:
-            print("Nessuna nota trovata nel vault.")
+            print(f"Nessuna nota trovata per l'anno {year}.")
             return
 
         # Ordina le settimane
@@ -573,12 +625,9 @@ def WeekLog():
 
         # Genera un file settimanale per ogni settimana
         for start_of_week in sorted_weeks:
-            end_of_week = start_of_week + timedelta(days=6)  # Calcola la domenica della settimana
-            week_number = start_of_week.isocalendar()[1]  # Numero della settimana
-            year = start_of_week.year
-
-            # Percorso della cartella weeks
-            weeks_dir = os.path.join(VAULT_DIR, str(year), "weeks")
+            end_of_week = start_of_week + timedelta(days=6) # Calcola la domenica della settimana
+            week_number = start_of_week.isocalendar()[1] # Ottiene il numero della settimana corrente
+            weeks_dir = os.path.join(VAULT_DIR, year, "weeks")
             os.makedirs(weeks_dir, exist_ok=True)
 
             # Nome del file settimanale
@@ -592,13 +641,13 @@ def WeekLog():
             notes_in_week = sorted(weeks_data[start_of_week])
             for note_path in notes_in_week:
                 with open(note_path, "r", encoding="utf-8") as note_file:
-                    current_section = "## Unsorted"  # Sezione predefinita per contenuti senza intestazione
+                    current_section = B_UNSORTED  # Sezione predefinita per contenuti senza intestazione
                     for line in note_file:
                         stripped_line = line.strip()
                         if stripped_line.startswith("# "):  # Ignora i titoli delle note giornaliere
                             continue
-                        if stripped_line.startswith("## "):  # Identifica una nuova sezione
-                            if stripped_line == "## tags":  # Salta la sezione ## tags
+                        if stripped_line.startswith(B_SUBTITLE):  # Identifica una nuova sezione
+                            if stripped_line == B_TAGS or stripped_line == B_NEXT:  # Salta la sezione ## tags e ## next
                                 current_section = None
                                 continue
                             current_section = stripped_line
@@ -627,8 +676,6 @@ def WeekLog():
                         weekly_file.write(f"{section}\n")
                         written_sections.add(section)  # Aggiungi la sezione al set
                     weekly_file.writelines(content)
-                    # weekly_file.write("\n")  # Aggiungi una riga vuota tra le sezioni
-
             FixNoteSpaces(weekly_file_path)
 
             print(f"File settimanale aggiornato: {os.path.relpath(weekly_file_path, VAULT_DIR)}")
@@ -669,7 +716,7 @@ def main():
     parser.add_argument("-ft", "--fast-tag",                        nargs=1,        metavar="TAGNAME",  help="Inserisce alla nota di oggi")
     parser.add_argument("-t", "--tag",                              nargs=2,        metavar=("TAGNAME", "DAY-NOTE"),  help="Inserisce alla nota specificata il tag scelto")
     parser.add_argument("-lt", "--list-tag",action="store_true",    help="lista dei tag presenti in tutto il vault")
-    parser.add_argument("-w", "--week",     action="store_true",    help="effettua un resoconto delle note dell'ultima settimana in una nota chiamata YYYYweeklyWW.md")
+    parser.add_argument("-w", "--week", nargs="?", const="current", metavar="YYYY", help="Genera i weekly log solo per l'anno corrente o per l'anno specificato (es: -w YYYY)")
     parser.add_argument("-cw", "--clean-week",action="store_true",  help="effettua una pulizia di tutte le note settimanali per pulire il repo dai resoconti ripetitivi")
     
     # Parsing degli argomenti
@@ -716,9 +763,21 @@ def main():
         TagList()
     
     elif args.week:
-        print("Genero i Weekly log...")
-        WeekLog()
-        print("Ora ogni anno ha i suoi weekly Log!. =^._.^=ﾉ")
+        success = True
+        if args.week == "current":
+            print("Genero i Weekly log per l'anno corrente...")
+            WeekLog()
+        else:
+            year_dir = os.path.join(VAULT_DIR, str(args.week))
+            if not os.path.exists(year_dir):
+                print(f"Anno {args.week} non presente nel vault, nessun weekly generato.")
+                success = False
+            else:
+                print(f"Genero i Weekly log per l'anno {args.week}...")
+                WeekLog(args.week)
+        
+        if success:
+            print("Weekly Log generati! =^._.^=ﾉ")
         
     elif args.clean_week:
         print("Pulizia dei Weekly log...")

@@ -36,19 +36,13 @@ Consiglio: genera un repo vuoto, e iniserisci questo repo come un sottomodulo gi
 
 3. **Assets:** La cartella assets contiene tutti gli allegati (documenti e immagini) utili alle varie note, dentro la cartella `assets/YYYY/` dove `YYYY` sono l'anno a cui fanno riferimento. ci sono i relativi docs, imgs, ... la struttura della cartella `assets/` deve essere identica a quella fuori in modo da mantenere semplice il ritrovamento dei file e documenti salvati.
 
-4. **JournalScript:** Questo sottomodulo contiene tutti gli script e le automazioni che possono essere eseguiti nel progetto. in modo da aggiungere note standardizzate, comandi di "segnalazione" come TAG, e automazioni come la gestione dei weekly log.
+4. **JournalScript:** Questo sottomodulo contiene tutti gli script e le automazioni che possono essere eseguiti nel progetto. in modo da aggiungere note standardizzate, comandi di "segnalazione" come TAG, note da portare al giorno successivo, log delle varie riunioni, e automazioni come la gestione dei weekly log.
 
 # Dipendenze utili VSCode
 
 1. **Markdown Preview Enhanced:** Questa serve ad utilizzare componenti di CSS e HTML direttamente nelle note, in questo modo è possibile vedere in preview parole colorate e indentate direttamente sull'editor e non conflitta con `pandoc` durante eventuali conversioni. Permette di sfruttare lo schema colori presente in "Legenda dei colori"
 
-2. **Markdown Preview Mermaid Support:** Usare il mermaid per creare grafici, i file .md devono chiamarsi con lo stesso nome dell'immagine che andranno a generare e saranno nella cartella vault/assets/macro-argomento/mermaid/.
-
-   > <span style="color: orange;">NOTA:</span> Una volta creata l'immagine del grafico desiderata, tasto destro ed esporta come png e ritagliarla di conseguenza.
-
-   In Questo modo se si vuole modificare una immagine si può avere direttamente il file generatore con estensione del nome -mermaid.md e l'immagine generata per poter fare modifiche rapide se necessarie. Nel caso in cui si trovasse una immagine inserita nel progetto è anche semplice capire se è una immagine scaricata e aggiunta o una generata e quindi modificabile guardando semplicemente il link.
-
-3. **Markdownlint** + **Prettier:** sono una combo di estensioni che permette di segnalare errori di formattazione all'interno di un md file attraverso regole presenti nel file `.markdownlint.json` nella root. Unito a Prettier per correggere direttamente la formattazione.
+2. **Markdownlint** + **Prettier:** sono una combo di estensioni che permette di segnalare errori di formattazione all'interno di un md file attraverso regole presenti nel file `.markdownlint.json` nella root. Unito a Prettier per correggere direttamente la formattazione.
 
    > <span style="color: darkviolet;">OSS:</span> per implementarli, dopo aver installato le
    > estensioni seguire i seguenti passaggisu `VSCode`:
@@ -65,11 +59,15 @@ Per come é strutturata l'architettura possono essere utilizzati TAG e indici di
 All'interno di una nota é supportato un solo titolo iniziale contenente la data del giorno a cui é riferito ma possono esserci anche altri sottotitoli per fare riferimento a specificitá referite a quel giorno
 
 - `## note` Nota generica
+- `## next` Note che si vogliono portare al giorno successivo
+  - (non vengono calcolate nei weekly)
 - `## idea` Idea da esplorare
-- `## refs` Riferimento esterno (link, paper...)
+- `## refs` Riferimento esterno (link, paper..., o documento dentro gli `/assets/YYYY/`)
 - `## logs` Log di un evento/azione/riunione
 - `## bugs` Bug da correggere
-- `## tags` Se si vuole taggare la nota con un certo evento (vedi il comando `-t --tag` per maggiori info)
+- `## tags` Se si vuole taggare la nota con un certo evento
+  - (vedi il comando `-t --tag` per maggiori info)
+  - (non vengono calcolate nei weekly)
 
 ## Eseguire il make python
 
@@ -91,5 +89,6 @@ All'interno di una nota é supportato un solo titolo iniziale contenente la data
 \scripts\make.py -lt
 # crea e distruggi i resoconti settimanali
 \scripts\make.py -w
+\scripts\make.py -w YYYY
 \scripts\make.py -cw
 ```
