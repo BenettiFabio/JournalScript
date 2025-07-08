@@ -210,6 +210,7 @@ def UpdateMainIndex(notes_by_year):
     Aggiorna il file MAIN_INDEX_FILE con tutte le note presenti nel vault, organizzate per anno.
     Le note più recenti saranno in cima alla lista di ogni anno.
     """
+
     # Controlla se MAIN_INDEX_FILE esiste, altrimenti crealo
     if not os.path.exists(MAIN_INDEX_FILE):
         with open(MAIN_INDEX_FILE, "w", encoding="utf-8") as index_file:
@@ -219,16 +220,15 @@ def UpdateMainIndex(notes_by_year):
     try:
         with open(MAIN_INDEX_FILE, "w", encoding="utf-8") as index_file:
             index_file.write("# Indice Principale\n\n")
-            for year, notes in sorted(notes_by_year.items(), reverse=True):
-                # Scrivi il titolo dell'anno
+            for year, notes in sorted(notes_by_year.items(), reverse=True):  # Anni dal più recente
                 index_file.write(f"# {year}\n\n")
-                # Ordina le note dalla più recente alla meno recente
-                for note_name, note_path in sorted(notes, reverse=True):
-                    relative_path = os.path.relpath(note_path, VAULT_DIR).replace("\\", "/")
-                    index_file.write(f"- [{note_name}]({relative_path})\n")
-                index_file.write("\n")
+                for note_name, note_path in sorted(notes, reverse=True):  # Note dalla più recente
+                    # Estrai MM-DD dal nome del file
+                    date_part = note_name.split(".")[0][5:]  # Prende MM-DD
+                    index_file.write(f"- [{date_part}]({note_path})\n")
+                index_file.write("\n")  # Riga vuota tra gli anni
     except Exception as e:
-        print(f"Errore durante l'aggiornamento dell'indice principale: {e}")
+        print(f"Errore durante l'aggiornamento del file principale: {e}")
 
 
 def UpdateTagsIndex(tags_data):
