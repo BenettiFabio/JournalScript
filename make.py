@@ -168,8 +168,9 @@ def CheckConsistency():
             # Ignora la cartella weeks
             if D_WEEKS in root:
                 continue
+            # TODO aggiungere un check di consistenza per gli assets che devono iniziare con la data YYYY-MM-DD-nome-assets.* per rendere piú facile la ricerca
             if D_ASSETS in root:
-                continue # TODO aggiungere un check di consistenza per gli assets che devono iniziare con la data YYYY-MM-DD-nome-assets.* per rendere piú facile la ricerca
+                continue
             for file in files:
                 # Escludi i file weekly
                 if file.startswith("weekly") or re.match(r"\d{4}weekly\d{2}\.md", file):
@@ -658,7 +659,12 @@ def WeekLog(year=None):
                         if stripped_line.startswith("# "):  # Ignora i titoli delle note giornaliere
                             continue
                         if stripped_line.startswith(B_SUBTITLE):  # Identifica una nuova sezione
-                            if stripped_line == B_TAGS or stripped_line == B_NEXT or stripped_line == B_REFS:  # Salta la sezione ## tags, ## next e ## refs
+                            if stripped_line == B_TAGS or stripped_line == B_NEXT:  # Salta la sezione ## tags e ## next
+                                current_section = None
+                                continue
+                            # TODO aggiungere una modifica del link al path in modo che vadano a puntare il valore giusto aggiungendo un ../ in piú davanti al nome cosí da essere sempre raggiungibili
+                            if stripped_line == B_REFS:
+                                # al momento salta la sezione, ma andrebbe preso il path del [](path) e aggiunto [](../path) per essere raggiungibile
                                 current_section = None
                                 continue
                             current_section = stripped_line
