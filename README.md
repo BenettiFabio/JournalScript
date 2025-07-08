@@ -13,14 +13,17 @@ Consiglio: genera un repo vuoto, e iniserisci questo repo come un sottomodulo gi
    myjournal/
    ├── main-index.md
    ├── 2024/
+   │   ├── assets/
    │   ├── weeks/
    │   ├── 2024-04-27.md
    │   ├── 2024-05-2.md
    │   └── 2024-05-31.md
    ├── 2025/
+   │   ├── assets/
    │   ├── weeks/
    │   └── 2024-01-31.md
    └── YYYY/
+       ├── assets/
        ├── weeks/
        │   └── YYYYweeklyWW.md
        └── YYYY-MM-DD.md
@@ -62,7 +65,9 @@ All'interno di una nota é supportato un solo titolo iniziale contenente la data
 - `## next` Note che si vogliono portare al giorno successivo
   - (non vengono calcolate nei weekly)
 - `## idea` Idea da esplorare
-- `## refs` Riferimento esterno (link, paper..., o documento dentro gli `/assets/YYYY/`)
+- `## refs` Riferimento esterno
+  - (link, paper..., o documento dentro la cartella dell'anno specifico)
+  - (non vengono calcolate nei weekly)
 - `## logs` Log di un evento/azione/riunione
 - `## bugs` Bug da correggere
 - `## tags` Se si vuole taggare la nota con un certo evento

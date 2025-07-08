@@ -22,6 +22,11 @@ B_UNSORTED = "## unsorted"  # Sezione per le note non ordinate (weekly)
 B_NOTE = "## note"  # Sezione per le note giornaliere
 B_TAGS = "## tags"  # Sezione dei tag
 B_NEXT = "## next"  # Sezione per le note che verranno proiettate al giorno successivo
+B_REFS = "## refs"  # Sezione per i riferimenti agli assets
+
+## DIR BLOCCATE ##
+D_ASSETS = "assets"
+D_WEEKS = "weeks"
 
 #######################
 ## UTILITY FUNCTIONS ##
@@ -161,8 +166,10 @@ def CheckConsistency():
 
         for root, dirs, files in os.walk(VAULT_DIR):
             # Ignora la cartella weeks
-            if "weeks" in root:
+            if D_WEEKS in root:
                 continue
+            if D_ASSETS in root:
+                continue # TODO aggiungere un check di consistenza per gli assets che devono iniziare con la data YYYY-MM-DD-nome-assets.* per rendere piú facile la ricerca
             for file in files:
                 # Escludi i file weekly
                 if file.startswith("weekly") or re.match(r"\d{4}weekly\d{2}\.md", file):
@@ -275,7 +282,9 @@ def UpdateIndex():
         # Scansiona il VAULT_DIR per trovare tutte le note
         for root, dirs, files in os.walk(VAULT_DIR):
             # Ignora la cartella weeks
-            if "weeks" in root:
+            if D_WEEKS in root:
+                continue
+            if D_ASSETS in root:
                 continue
             for file in files:
                 # Escludi i file weekly
@@ -594,7 +603,9 @@ def WeekLog(year=None):
             return
 
         for root, dirs, files in os.walk(year_dir):
-            if "weeks" in root:
+            if D_WEEKS in root:
+                continue
+            if D_ASSETS in root:
                 continue
             for file in files:
                 # Escludi i file weekly
@@ -627,7 +638,7 @@ def WeekLog(year=None):
         for start_of_week in sorted_weeks:
             end_of_week = start_of_week + timedelta(days=6) # Calcola la domenica della settimana
             week_number = start_of_week.isocalendar()[1] # Ottiene il numero della settimana corrente
-            weeks_dir = os.path.join(VAULT_DIR, year, "weeks")
+            weeks_dir = os.path.join(VAULT_DIR, year, D_WEEKS)
             os.makedirs(weeks_dir, exist_ok=True)
 
             # Nome del file settimanale
@@ -647,7 +658,7 @@ def WeekLog(year=None):
                         if stripped_line.startswith("# "):  # Ignora i titoli delle note giornaliere
                             continue
                         if stripped_line.startswith(B_SUBTITLE):  # Identifica una nuova sezione
-                            if stripped_line == B_TAGS or stripped_line == B_NEXT:  # Salta la sezione ## tags e ## next
+                            if stripped_line == B_TAGS or stripped_line == B_NEXT or stripped_line == B_REFS:  # Salta la sezione ## tags, ## next e ## refs
                                 current_section = None
                                 continue
                             current_section = stripped_line
@@ -691,7 +702,7 @@ def DeleteWeekLog():
         # Scansiona il VAULT_DIR per trovare tutte le cartelle 'weeks'
         for root, dirs, files in os.walk(VAULT_DIR):
             for dir_name in dirs:
-                if dir_name == "weeks":
+                if dir_name == D_WEEKS:
                     weeks_dir_path = os.path.join(root, dir_name)
                     # Elimina la cartella 'weeks' e tutto il suo contenuto
                     shutil.rmtree(weeks_dir_path)
