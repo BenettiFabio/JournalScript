@@ -28,6 +28,10 @@ B_REFS = "## refs"  # Sezione per i riferimenti agli assets
 D_ASSETS = "assets"
 D_WEEKS = "weeks"
 
+## FILE BLOCCATI ##
+F_MAIN_INDEX = "main-index.md"
+F_TAGS_INDEX = "tags-index.md"
+
 #######################
 ## UTILITY FUNCTIONS ##
 #######################
@@ -160,23 +164,31 @@ def CheckConsistency():
     Stampa i nomi delle note con formato errato o duplicati per consentire la correzione manuale.
     """
     try:
-        invalid_notes = []  # Lista per raccogliere i file con nomi errati
-        note_names = set()  # Set per tracciare i nomi univoci delle note
-        duplicate_notes = []  # Lista per raccogliere i file con nomi duplicati
+        invalid_notes = []      # Lista per raccogliere i file con nomi errati
+        note_names = set()      # Set per tracciare i nomi univoci delle note
+        duplicate_notes = []    # Lista per raccogliere i file con nomi duplicati
+        invalid_assets = []     # File asset con nomi errati
 
         for root, dirs, files in os.walk(VAULT_DIR):
             # Ignora la cartella weeks
             if D_WEEKS in root:
                 continue
-            # TODO aggiungere un check di consistenza per gli assets che devono iniziare con la data YYYY-MM-DD-nome-assets.* per rendere piú facile la ricerca
-            if D_ASSETS in root:
-                continue
+            
             for file in files:
+                # Check per gli assets
+                if D_ASSETS in root:
+                    # Match per asset: YYYY-MM-DD-nomequalsiasi.estensione
+                    if not re.match(r"\d{4}-\d{2}-\d{2}-.+\..+", file):
+                        relative_path = os.path.relpath(os.path.join(root, file), VAULT_DIR)
+                        invalid_assets.append(relative_path)
+                    continue  # Skip al prossimo file, non serve processare altro
+                
                 # Escludi i file weekly
                 if file.startswith("weekly") or re.match(r"\d{4}weekly\d{2}\.md", file):
                     continue
+                
                 if file.endswith(".md"):
-                    if(file == "main-index.md" or file == "tags-index.md"):
+                    if(file == F_MAIN_INDEX or file == F_TAGS_INDEX):
                         continue
                     # Controlla se il nome del file è nel formato YYYY-MM-DD.md
                     match = re.match(r"(\d{4})-(\d{2})-(\d{2})\.md", file)
@@ -206,7 +218,13 @@ def CheckConsistency():
                 print(f"- {note}")
             print("\nRinomina manualmente i file sopra elencati per garantire che ogni nota abbia un nome univoco.")
 
-        if invalid_notes or duplicate_notes:
+        if invalid_assets:
+            print("Sono stati trovati file asset con nomi non validi:")
+            for asset in invalid_assets:
+                print(f"- {asset}")
+            print("\nRinomina manualmente gli asset sopra elencati per rispettare il formato YYYY-MM-DD-nome.estensione.")
+
+        if invalid_notes or duplicate_notes or invalid_assets:
             sys.exit(1)
 
     except Exception as e:
@@ -662,16 +680,13 @@ def WeekLog(year=None):
                             if stripped_line == B_TAGS or stripped_line == B_NEXT:  # Salta la sezione ## tags e ## next
                                 current_section = None
                                 continue
-                            # TODO aggiungere una modifica del link al path in modo che vadano a puntare il valore giusto aggiungendo un ../ in piú davanti al nome cosí da essere sempre raggiungibili
-                            if stripped_line == B_REFS:
-                                # al momento salta la sezione, ma andrebbe preso il path del [](path) e aggiunto [](../path) per essere raggiungibile
-                                current_section = None
-                                continue
                             current_section = stripped_line
                             if current_section not in sections:
                                 sections[current_section] = []
                             continue  # Non aggiungere il titolo della sezione al contenuto
                         if current_section:  # Aggiungi contenuto solo se la sezione è valida
+                            # Correggi i link Markdown che puntano a file asset
+                            line = re.sub(r'\]\((assets/[^)]+)\)', r'](../\1)', line) # Trasforma i link markdown da `](assets/file.md)` a `](../assets/file.md)`
                             sections.setdefault(current_section, []).append(line)
 
             # Scrivi il contenuto unito nel file settimanale
