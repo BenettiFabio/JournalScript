@@ -5,14 +5,23 @@ import sys
 import shutil
 from datetime import date, datetime, timedelta
 from pathlib import Path
+import tarfile
+import tkinter as tk
+from tkinter import filedialog
+
+## FILE BLOCCATI ##
+F_MAIN_INDEX = "main-index.md"
+F_TAGS_INDEX = "tags-index.md"
+F_CALENDAR_INDEX = "calendar-index.md"
 
 ## DEFINES ##
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # Directory dello script
 VAULT_DIR = Path(os.path.join(SCRIPT_DIR, "..", "myjournal")).resolve()  # Directory del vault
 today = date.today()
 YEAR_DIR = Path(os.path.join(VAULT_DIR, str(today.year))).resolve()  # Directory dell'anno corrente
-MAIN_INDEX_FILE = Path(os.path.join(VAULT_DIR, "main-index.md")).resolve()  # Path del file principale
-TAGS_INDEX_FILE = Path(os.path.join(VAULT_DIR, "tags-index.md")).resolve()  # Path del file principale
+MAIN_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_MAIN_INDEX)).resolve()  # Path del file principale
+TAGS_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_TAGS_INDEX)).resolve()  # Path del file principale
+CALE_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_CALENDAR_INDEX)).resolve()  # Path del file principale
 
 ## TAGS BLOCCATI ##
 # Questi sottotitoli in una nota non possono essere usati indipendentemente per separare le note
@@ -27,10 +36,7 @@ B_REFS = "## refs"  # Sezione per i riferimenti agli assets
 ## DIR BLOCCATE ##
 D_ASSETS = "assets"
 D_WEEKS = "weeks"
-
-## FILE BLOCCATI ##
-F_MAIN_INDEX = "main-index.md"
-F_TAGS_INDEX = "tags-index.md"
+D_STATS = "stats"
 
 #######################
 ## UTILITY FUNCTIONS ##
@@ -53,44 +59,6 @@ def GenerateNoteName(date_obj):
     month = f"{date_obj.month:02d}"  # Formatta il mese con due cifre
     day = f"{date_obj.day:02d}"      # Formatta il giorno con due cifre
     return f"{year}-{month}-{day}.md"
-
-def UpdateTagIndex(tagname, note_path):
-    """
-    Aggiorna il file TAGS_INDEX_FILE con il tag specificato.
-    Se il file non esiste, lo crea. Aggiunge il tag come titolo e un elenco puntato con i nomi delle note.
-    Verifica che la nota non sia già presente sotto il tag.
-    """
-    try:
-        # Leggi il contenuto esistente del file
-        with open(TAGS_INDEX_FILE, "r", encoding="utf-8") as tag_file:
-            content = tag_file.readlines()
-
-        # Cerca la sezione del tag specificato
-        tag_section_found = False
-        for i, line in enumerate(content):
-            if line.strip() == f"## {tagname}":
-                tag_section_found = True
-                # Controlla se la nota è già presente nell'elenco puntato
-                j = i + 1
-                while j < len(content) and content[j].startswith("- "):
-                    if note_path in content[j]:
-                        return
-                    j += 1
-                # Aggiungi la nota all'elenco puntato
-                content.insert(j, f"- [{os.path.basename(note_path)}]({note_path})\n\n")
-                break
-
-        # Se la sezione del tag non esiste, creala in fondo al file
-        if not tag_section_found:
-            content.append(f"## {tagname}\n\n")
-            content.append(f"- [{os.path.basename(note_path)}]({note_path})\n\n")
-
-        # Scrivi il contenuto aggiornato nel file
-        with open(TAGS_INDEX_FILE, "w", encoding="utf-8") as tag_file:
-            tag_file.writelines(content)
-
-    except Exception as e:
-        print(f"Errore durante l'aggiornamento del file dei tag: {e}")
 
 def FixNoteSpaces(notename):
     """
@@ -188,7 +156,7 @@ def CheckConsistency():
                     continue
                 
                 if file.endswith(".md"):
-                    if(file == F_MAIN_INDEX or file == F_TAGS_INDEX):
+                    if(file == F_MAIN_INDEX or file == F_TAGS_INDEX or F_CALENDAR_INDEX):
                         continue
                     # Controlla se il nome del file è nel formato YYYY-MM-DD.md
                     match = re.match(r"(\d{4})-(\d{2})-(\d{2})\.md", file)
@@ -280,6 +248,84 @@ def UpdateTagsIndex(tags_data):
     except Exception as e:
         print(f"Errore durante l'aggiornamento del file dei tag: {e}")
 
+def UpdateCalendarIndex(notes_by_year):
+    """
+    Aggiorna il file CALENDAR_INDEX_FILE con i calendari annuali.
+    I mesi sono ordinati in modo decrescente (da dicembre a gennaio) per avere l'ultimo mese sempre in alto.
+    """
+
+    # Se non esiste, crealo
+    if not os.path.exists(CALE_INDEX_FILE):
+        with open(CALE_INDEX_FILE, "w", encoding="utf-8") as f:
+            f.write("# Calendar Index\n\n")
+        print(f"File '{CALE_INDEX_FILE}' creato con successo.")
+
+    try:
+        import calendar
+        from datetime import datetime
+
+        with open(CALE_INDEX_FILE, "w", encoding="utf-8") as f:
+            f.write("# Calendar Index\n\n")
+
+            # Anni in ordine decrescente
+            for year, notes in sorted(notes_by_year.items(), reverse=True):
+                f.write(f"# {year}\n\n")
+
+                # Estrai tutte le date valide dall'anno
+                dates = []
+                for note_name, note_path in notes:
+                    try:
+                        d = datetime.strptime(note_name.replace(".md", ""), "%Y-%m-%d")
+                        dates.append((d, note_path))
+                    except ValueError:
+                        continue
+
+                if not dates:
+                    continue
+
+                last_month = max(d.month for d, _ in dates)
+                cal = calendar.Calendar(firstweekday=0)  # Lunedì
+
+                # ---- Indice dei mesi ----
+                f.write("### Indice dei mesi\n")
+                for month in range(last_month, 0, -1):
+                    mese_nome = calendar.month_name[month].capitalize()
+                    # Link Markdown al titolo del mese
+                    link = f"#{mese_nome.lower()}-{year}"
+                    f.write(f"- [{mese_nome}](#{mese_nome.lower()}-{year})\n")
+                f.write("\n")
+                
+                # Ciclo mesi in ordine decrescente
+                for month in range(last_month, 0, -1):
+                    mese_nome = calendar.month_name[month].capitalize()
+                    f.write(f"## {mese_nome} {year}\n\n")
+                    f.write("| Lu | Ma | Me | Gi | Ve | Sa | Do |\n")
+                    f.write("|----|----|----|----|----|----|----|\n")
+
+                    month_days = cal.monthdayscalendar(int(year), month)
+
+                    for week in month_days:
+                        row = []
+                        for day in week:
+                            if day == 0:
+                                row.append(" ")
+                            else:
+                                note_file = f"{year}-{month:02d}-{day:02d}.md"
+                                # Verifica se la nota c’è in notes_by_year
+                                note_path = None
+                                for d, relpath in dates:
+                                    if d.year == int(year) and d.month == month and d.day == day:
+                                        note_path = relpath
+                                        break
+                                if note_path:
+                                    row.append(f"[{day}]({note_path})")
+                                else:
+                                    row.append(str(day))
+                        f.write("| " + " | ".join(row) + " |\n")
+                    f.write("\n")  # Riga vuota tra i mesi
+
+    except Exception as e:
+        print(f"Errore durante l'aggiornamento del calendario: {e}")
 
 def UpdateIndex():
     """
@@ -344,6 +390,7 @@ def UpdateIndex():
         # Aggiorna i file degli indici
         UpdateMainIndex(notes_by_year)
         UpdateTagsIndex(tags_data)
+        UpdateCalendarIndex(notes_by_year)
 
     except Exception as e:
         print(f"Errore durante l'aggiornamento degli indici: {e}")
@@ -429,7 +476,10 @@ def AddNewNote():
 
     except Exception as e:
         print(f"Errore durante la creazione della nota: {e}")
-        
+    
+    # TODO: aggiunge la cartella D_STATS nell'anno corrente se non esiste e ci crea i file F_STATISTICS
+    # TODO: aggiorna il contenuto delle statistiche dell'anno
+    
     # Aggiorna istantaneamente l'indice
     UpdateIndex()
 
@@ -731,6 +781,55 @@ def DeleteWeekLog():
     except Exception as e:
         print(f"Errore durante l'eliminazione delle cartelle 'weeks': {e}")
 
+def DoBackup(includeAssets):
+    """
+    Crea un backup in formato .tar del diario.
+    Mostra una finestra grafica per scegliere nome e percorso di salvataggio.
+    
+    :param include_assets: se False esclude assets/ e weeks/
+    """
+
+    # Nasconde la finestra principale Tk
+    root = tk.Tk()
+    root.withdraw()
+    
+    root.attributes('-topmost', True) # sempre in primo piano
+
+    # Data odierna in formato YYYY-MM-DD
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Nome file con data inclusa
+    default_name = f"backup-journal-{today}.tar"
+    
+    # Finestra "Salva con nome"
+    file_path = filedialog.asksaveasfilename(
+        title="Salva backup",
+        defaultextension=".tar",
+        filetypes=[("Tar archive", "*.tar")],
+        initialdir=os.getcwd(),
+        initialfile=default_name
+    )
+
+    if not file_path:
+        print("Backup annullato.")
+        sys.exit(1)
+
+    # Creazione archivio tar
+    with tarfile.open(file_path, "w") as tar:
+        for root_dir, dirs, files in os.walk(VAULT_DIR):
+            # Se non vogliamo includere assets e weeks → li escludiamo
+            if not includeAssets:
+                # Escludi cartelle "assets" e "weeks"
+                dirs[:] = [d for d in dirs if d not in [D_ASSETS, D_WEEKS, D_STATS]]
+            else:
+                dirs[:] = [d for d in dirs if d not in [D_WEEKS, D_STATS]]
+
+            for file in files:
+                full_path = os.path.join(root_dir, file)
+                # Path relativo per mantenere struttura dentro il tar
+                arcname = os.path.relpath(full_path, start=os.path.dirname(VAULT_DIR))
+                tar.add(full_path, arcname=arcname)
+
 
 ## MAIN FUNCTION ##
 def main():  
@@ -750,6 +849,7 @@ def main():
     parser.add_argument("-lt", "--list-tag",action="store_true",    help="lista dei tag presenti in tutto il vault")
     parser.add_argument("-w", "--week", nargs="?", const="current", metavar="YYYY", help="Genera i weekly log solo per l'anno corrente o per l'anno specificato (es: -w YYYY)")
     parser.add_argument("-cw", "--clean-week",action="store_true",  help="effettua una pulizia di tutte le note settimanali per pulire il repo dai resoconti ripetitivi")
+    parser.add_argument("-b", "--backup",     action="store_true",    help="Effettua il backup in formato tar di tutta la cartella myjournal, con richiesta di salvare o meno gli assets")
     
     # Parsing degli argomenti
     args = parser.parse_args()
@@ -767,7 +867,7 @@ def main():
     elif args.update:
         print("Aggiornamento dell'indice...")
         UpdateIndex()
-        print("Indici (main e tags) aggiornati! (=^･ｪ･^=)ﾉ")
+        print("Indici (main, tags e calendar) aggiornati! (=^･ｪ･^=)ﾉ")
     
     elif args.check_consistency:
         print("Check dei nomi in corso...")
@@ -815,7 +915,21 @@ def main():
         print("Pulizia dei Weekly log...")
         DeleteWeekLog()
         print("Weekly log eliminati!. (=^･ｪ･^=)ﾉ")
-
+        
+    elif args.backup:
+        include_assets = False
+        print("Generazione del backup...")
+        
+        assets_choice = input("Inserire anche gli assets? [YySs/Nn] (vuoto per saltarli): ")
+        
+        if assets_choice.lower() not in ["y", "s", "n", ""]:
+            print("Scelta non valida, backup annullato...")
+            sys.exit(1)
+        elif assets_choice.lower() in ["y", "s"]:
+            include_assets = True
+        
+        DoBackup(include_assets)
+        print("Backup Eseguito con successo!")
         
     else:
         print("Errore: nessuna opzione valida selezionata.")
