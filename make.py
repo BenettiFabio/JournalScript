@@ -13,6 +13,7 @@ from tkinter import filedialog
 F_MAIN_INDEX = "main-index.md"
 F_TAGS_INDEX = "tags-index.md"
 F_CALENDAR_INDEX = "calendar-index.md"
+F_STATISTICS_INFO = "satistics-info.md"
 
 ## DEFINES ##
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # Directory dello script
@@ -20,8 +21,9 @@ VAULT_DIR = Path(os.path.join(SCRIPT_DIR, "..", "myjournal")).resolve()  # Direc
 today = date.today()
 YEAR_DIR = Path(os.path.join(VAULT_DIR, str(today.year))).resolve()  # Directory dell'anno corrente
 MAIN_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_MAIN_INDEX)).resolve()  # Path del file principale
-TAGS_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_TAGS_INDEX)).resolve()  # Path del file principale
-CALE_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_CALENDAR_INDEX)).resolve()  # Path del file principale
+TAGS_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_TAGS_INDEX)).resolve()
+CALE_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_CALENDAR_INDEX)).resolve()
+STAT_INFO_FILE =  Path(os.path.join(VAULT_DIR, F_STATISTICS_INFO)).resolve()
 
 ## TAGS BLOCCATI ##
 # Questi sottotitoli in una nota non possono essere usati indipendentemente per separare le note
@@ -36,7 +38,6 @@ B_REFS = "## refs"  # Sezione per i riferimenti agli assets
 ## DIR BLOCCATE ##
 D_ASSETS = "assets"
 D_WEEKS = "weeks"
-D_STATS = "stats"
 
 #######################
 ## UTILITY FUNCTIONS ##
@@ -156,7 +157,7 @@ def CheckConsistency():
                     continue
                 
                 if file.endswith(".md"):
-                    if(file == F_MAIN_INDEX or file == F_TAGS_INDEX or F_CALENDAR_INDEX):
+                    if(file == F_MAIN_INDEX or file == F_TAGS_INDEX or file == F_CALENDAR_INDEX or file == F_STATISTICS_INFO):
                         continue
                     # Controlla se il nome del file è nel formato YYYY-MM-DD.md
                     match = re.match(r"(\d{4})-(\d{2})-(\d{2})\.md", file)
@@ -327,6 +328,119 @@ def UpdateCalendarIndex(notes_by_year):
     except Exception as e:
         print(f"Errore durante l'aggiornamento del calendario: {e}")
 
+def UpdateStatistics():
+    """
+    Aggiorna il file STATISTICS_FILE con tutte le statistiche del vault.
+    Include:
+    - Numero di note per anno
+    - Numero di parole per mese nell'ultimo anno
+    - Media parole per nota
+    """
+    # Dizionari per raccogliere dati
+    notes_by_year = {}
+    words_by_year_month = {}
+    all_dates = []
+
+    # Scansiona il VAULT_DIR
+    for root, dirs, files in os.walk(VAULT_DIR):
+        if D_WEEKS in root or D_ASSETS in root:
+            continue
+
+        for file in files:
+            if file.endswith(".md") and not file.startswith("weekly"):
+                file_path = os.path.join(root, file)
+                relative_path = os.path.relpath(file_path, VAULT_DIR).replace("\\", "/")
+                
+                # Estrai anno e mese
+                match = re.match(r"(\d{4})-(\d{2})-(\d{2})\.md", file)
+                if match:
+                    year, month, day = match.groups()
+                    year = int(year)
+                    month = int(month)
+                    day = int(day)
+
+                    # Aggiungi nota all'anno
+                    if year not in notes_by_year:
+                        notes_by_year[year] = []
+                    notes_by_year[year].append(relative_path)
+
+                    # Conta parole
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                        word_count = len(content.split())
+                    if year not in words_by_year_month:
+                        words_by_year_month[year] = {}
+                    if month not in words_by_year_month[year]:
+                        words_by_year_month[year][month] = 0
+                    words_by_year_month[year][month] += word_count
+
+                    # Memorizza date per streak
+                    all_dates.append(datetime(year, month, int(day)))
+
+    # Calcola streak di giorni consecutivi
+    all_dates = sorted(all_dates)
+    max_streak = 0
+    current_streak = 1
+    streak_now = 1
+    for i in range(1, len(all_dates)):
+        delta = (all_dates[i] - all_dates[i-1]).days
+        if delta == 1:
+            current_streak += 1
+        else:
+            current_streak = 1
+        max_streak = max(max_streak, current_streak)
+    if all_dates:
+        streak_now = 1
+        last_date = all_dates[-1]
+        for d in reversed(all_dates[:-1]):
+            if (last_date - d).days == 1:
+                streak_now += 1
+                last_date = d
+            else:
+                break
+
+    # Calcola media parole per nota
+    total_words = sum(sum(words_by_year_month[y].values()) for y in words_by_year_month)
+    total_notes = sum(len(notes_by_year[y]) for y in notes_by_year)
+    avg_words_per_note = total_words // total_notes if total_notes else 0
+
+    # Scrive statistics.md
+    try:
+        with open(STAT_INFO_FILE, "w", encoding="utf-8") as f:
+            f.write("# Statistiche complessive\n\n")
+
+            # Note per anno
+            f.write("## Note per anno\n")
+            for year in sorted(notes_by_year.keys(), reverse=True):
+                count = len(notes_by_year[year])
+                bar = "█" * (count // 2)  # scala semplice
+                f.write(f"{year}: {bar} {count} note\n")
+            f.write("\n")
+
+            # Statistiche mensili ultimo anno
+            last_year = max(notes_by_year.keys())
+            f.write(f"## Statistiche mensili {last_year}\n")
+            for month in range(1, 13):
+                words = words_by_year_month.get(last_year, {}).get(month, 0)
+                note_count = sum(1 for n in notes_by_year[last_year] if f"{last_year}-{month:02}" in n)
+                bar = "█" * (words // 1000 if words else 0)
+                month_name = datetime(last_year, month, 1).strftime("%B")
+                f.write(f"{month_name:<9} | {bar:<10} {words} parole, {note_count} note\n")
+            f.write("\n")
+
+            # Streak di scrittura
+            # f.write("## Giorni consecutivi di scrittura\n")
+            # f.write(f"Streak massimo: {max_streak} giorni\n")
+            # f.write(f"Streak attuale: {streak_now} giorni\n\n")
+
+            # Media parole per nota
+            f.write("## Media parole per nota\n")
+            f.write(f"Media generale: {avg_words_per_note} parole per nota\n\n")
+
+        # print(f"File '{os.path.relpath(STAT_INFO_FILE, VAULT_DIR)}' aggiornato con successo.")
+    except Exception as e:
+        print(f"Errore durante l'aggiornamento delle statistiche: {e}")
+
 def UpdateIndex():
     """
     Aggiorna gli indici principali e dei tag leggendo le note presenti nel vault.
@@ -391,6 +505,7 @@ def UpdateIndex():
         UpdateMainIndex(notes_by_year)
         UpdateTagsIndex(tags_data)
         UpdateCalendarIndex(notes_by_year)
+        UpdateStatistics()
 
     except Exception as e:
         print(f"Errore durante l'aggiornamento degli indici: {e}")
@@ -476,9 +591,6 @@ def AddNewNote():
 
     except Exception as e:
         print(f"Errore durante la creazione della nota: {e}")
-    
-    # TODO: aggiunge la cartella D_STATS nell'anno corrente se non esiste e ci crea i file F_STATISTICS
-    # TODO: aggiorna il contenuto delle statistiche dell'anno
     
     # Aggiorna istantaneamente l'indice
     UpdateIndex()
@@ -820,9 +932,9 @@ def DoBackup(includeAssets):
             # Se non vogliamo includere assets e weeks → li escludiamo
             if not includeAssets:
                 # Escludi cartelle "assets" e "weeks"
-                dirs[:] = [d for d in dirs if d not in [D_ASSETS, D_WEEKS, D_STATS]]
+                dirs[:] = [d for d in dirs if d not in [D_ASSETS, D_WEEKS]]
             else:
-                dirs[:] = [d for d in dirs if d not in [D_WEEKS, D_STATS]]
+                dirs[:] = [d for d in dirs if d not in [D_WEEKS]]
 
             for file in files:
                 full_path = os.path.join(root_dir, file)
