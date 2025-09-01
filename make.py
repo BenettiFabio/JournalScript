@@ -413,7 +413,7 @@ def UpdateStatistics():
             f.write("## Note per anno\n")
             for year in sorted(notes_by_year.keys(), reverse=True):
                 count = len(notes_by_year[year])
-                bar = "█" * (count // 2)  # scala semplice
+                bar = "█" * (count // 3)  # scala semplice
                 f.write(f"{year}: {bar} {count} note\n")
             f.write("\n")
 
