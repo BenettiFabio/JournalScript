@@ -259,7 +259,7 @@ def UpdateCalendarIndex(notes_by_year):
     if not os.path.exists(CALE_INDEX_FILE):
         with open(CALE_INDEX_FILE, "w", encoding="utf-8") as f:
             f.write("# Calendar Index\n\n")
-        print(f"File '{CALE_INDEX_FILE}' creato con successo.")
+        print(f"File '{os.path.relpath(CALE_INDEX_FILE, VAULT_DIR)}' creato con successo.")
 
     try:
         import calendar
