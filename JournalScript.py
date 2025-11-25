@@ -8,6 +8,7 @@ from pathlib import Path
 import tarfile
 import tkinter as tk
 from tkinter import filedialog
+import pyfiglet
 
 ## FILE BLOCCATI ##
 F_MAIN_INDEX = "main-index.md"
@@ -947,9 +948,10 @@ def DoBackup(includeAssets):
 def main():  
     # Creazione del parser
     parser = argparse.ArgumentParser(
-        prog="make.py",
+        prog="JournalScript.py",
         description="Make script per gestire la conversione di note in PDF. Tips: genera un repo git vuoto e inserisci questo come un sottomodulo prima di lanciare un --init",
-        epilog="Freeware Licence 2025 Fabio. Maintainer: BenettiFabio"
+        epilog="Freeware Licence 2025 Fabio. Maintainer: BenettiFabio",
+        add_help=False
     )
     # Aggiunta delle opzioni
     parser.add_argument("-i", "--init",     action="store_true",    help="Inizializza la struttura del vault in modo che sia consistente per journal il make.py")
@@ -961,8 +963,9 @@ def main():
     parser.add_argument("-lt", "--list-tag",action="store_true",    help="lista dei tag presenti in tutto il vault")
     parser.add_argument("-w", "--week", nargs="?", const="current", metavar="YYYY", help="Genera i weekly log solo per l'anno corrente o per l'anno specificato (es: -w YYYY)")
     parser.add_argument("-cw", "--clean-week",action="store_true",  help="effettua una pulizia di tutte le note settimanali per pulire il repo dai resoconti ripetitivi")
-    parser.add_argument("-b", "--backup",     action="store_true",    help="Effettua il backup in formato tar di tutta la cartella myjournal, con richiesta di salvare o meno gli assets")
-    
+    parser.add_argument("-b", "--backup",     action="store_true",  help="Effettua il backup in formato tar di tutta la cartella myjournal, con richiesta di salvare o meno gli assets")
+    parser.add_argument("-h", "--help",       action="store_true",  help="Mostra questo messaggio di aiuto")
+
     # Parsing degli argomenti
     args = parser.parse_args()
 
@@ -1043,9 +1046,15 @@ def main():
         DoBackup(include_assets)
         print("Backup Eseguito con successo!")
         
+    elif args.help:
+        print(pyfiglet.figlet_format("Journal Script", font="chunky"))
+        parser.print_help()
+        sys.exit(0)
     else:
         print("Errore: nessuna opzione valida selezionata.")
+        print(pyfiglet.figlet_format("Journal Script", font="chunky"))
         parser.print_help()
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
