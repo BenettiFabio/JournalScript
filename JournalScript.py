@@ -10,6 +10,9 @@ import tkinter as tk
 from tkinter import filedialog
 import pyfiglet
 
+## VERSIONE ##
+JOURNALSCRIPT_VERSION = "1.2.0"
+
 ## FILE BLOCCATI ##
 F_MAIN_INDEX = "main-index.md"
 F_TAGS_INDEX = "tags-index.md"
@@ -517,40 +520,69 @@ def AddNewNote():
     Se l'anno esiste ma la nota no, aggiunge la nota del giorno.
     La nota è una copia di templates/void-notes.md con il titolo modificato.
     """
+    # ######################## # 
     # Ottieni la data di oggi
+    # ######################## # 
     today = date.today()
     note_filename = GenerateNoteName(today)
     year, month, day = note_filename.split(".")[0].split("-")
     year_dir = YEAR_DIR
     note_path = os.path.join(year_dir, note_filename)
 
+    # ######################## # 
     # Path del template
+    # ######################## # 
     template_path = os.path.join(SCRIPT_DIR, "templates", "void-notes.md")
 
+    # ######################## # 
     # Controlla se la directory dell'anno esiste, altrimenti creala
+    # ######################## # 
     if not os.path.exists(year_dir):
         os.makedirs(year_dir)
 
+    # ######################## # 
     # Controlla se la nota esiste già
+    # ######################## # 
     if os.path.exists(note_path):
         print(f"La nota '{os.path.relpath(note_path, VAULT_DIR)}' esiste già. Nessuna azione necessaria.")
         return
     
+    # ######################## # 
     # Prima di copiare il template estrae dalla nota piú recente il blocco ## next per le note che si vogliono ricordare dal giorno prima
+    # ######################## # 
     md_files = []
     for file in os.listdir(year_dir):
         if file.endswith(".md") and file != note_filename:
-            match = re.match(r"(\d{4})-(\d{2})-(\d{2})\.md", file)
-            if match:
+            if re.match(r"\d{4}-\d{2}-\d{2}\.md", file):
                 md_files.append(file)
+
     md_files = sorted(md_files)
     prev_note = None
+
+    # 1. Cerca nell'anno corrente
     for f in reversed(md_files):
         if f < note_filename:
             prev_note = os.path.join(year_dir, f)
             break
-        
+
+    # 2. Se non trovata, cerca nell'anno precedente
+    if prev_note is None:
+        current_year = int(note_filename[:4])
+        prev_year_dir = os.path.join(os.path.dirname(year_dir), str(current_year - 1))
+
+        if os.path.exists(prev_year_dir):
+            prev_md_files = []
+            for file in os.listdir(prev_year_dir):
+                if re.match(r"\d{4}-\d{2}-\d{2}\.md", file):
+                    prev_md_files.append(file)
+
+            if prev_md_files:
+                prev_md_files = sorted(prev_md_files)
+                prev_note = os.path.join(prev_year_dir, prev_md_files[-1])
+    
+    # ######################## #
     # Estrai il contenuto della sezione B_NEXT dalla nota precedente
+    # ######################## #
     next_content = []
     if prev_note:
         with open(prev_note, "r", encoding="utf-8") as prev_file:
@@ -567,7 +599,9 @@ def AddNewNote():
         if next_content and next_content[-1].strip() != "":
             next_content.append("\n")
 
+    # ######################## #
     # Copia il template nella posizione della nuova nota
+    # ######################## #
     try:
         shutil.copy(template_path, note_path)
         with open(note_path, "r", encoding="utf-8") as file:
@@ -593,7 +627,9 @@ def AddNewNote():
     except Exception as e:
         print(f"Errore durante la creazione della nota: {e}")
     
+    # ######################## #
     # Aggiorna istantaneamente l'indice
+    # ######################## #
     UpdateIndex()
 
 def InitVault():
@@ -964,6 +1000,7 @@ def main():
     parser.add_argument("-w", "--week", nargs="?", const="current", metavar="YYYY", help="Genera i weekly log solo per l'anno corrente o per l'anno specificato (es: -w YYYY)")
     parser.add_argument("-cw", "--clean-week",action="store_true",  help="effettua una pulizia di tutte le note settimanali per pulire il repo dai resoconti ripetitivi")
     parser.add_argument("-b", "--backup",     action="store_true",  help="Effettua il backup in formato tar di tutta la cartella myjournal, con richiesta di salvare o meno gli assets")
+    parser.add_argument("-v", "--version",    action="store_true",  help="Mostra la versione dello script")
     parser.add_argument("-h", "--help",       action="store_true",  help="Mostra questo messaggio di aiuto")
 
     # Parsing degli argomenti
@@ -974,6 +1011,9 @@ def main():
         print(f"Creazione di un vault di partenza...")
         InitVault()
         print(f"Enjoy your new journal vault! =^._.^=ﾉ")
+    
+    if args.version:
+        print("JournalScript v"+JOURNALSCRIPT_VERSION)
     
     elif args.new:
         print("Creazione di una nuova nota...")
