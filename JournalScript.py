@@ -11,7 +11,7 @@ from tkinter import filedialog
 import pyfiglet
 
 ## VERSIONE ##
-JOURNALSCRIPT_VERSION = "1.2.0"
+JOURNALSCRIPT_VERSION = "1.2.1"
 
 ## FILE BLOCCATI ##
 F_MAIN_INDEX = "main-index.md"
@@ -272,8 +272,13 @@ def UpdateCalendarIndex(notes_by_year):
         with open(CALE_INDEX_FILE, "w", encoding="utf-8") as f:
             f.write("# Calendar Index\n\n")
 
-            # Anni in ordine decrescente
+            # Anni in ordine decrescente (imita ai due anni più recenti)
+            sorted_years = sorted(notes_by_year.keys(), reverse=True)
+            recent_years = set(sorted_years[:2])
             for year, notes in sorted(notes_by_year.items(), reverse=True):
+                if year not in recent_years:
+                    continue
+                
                 f.write(f"# {year}\n\n")
 
                 # Estrai tutte le date valide dall'anno
