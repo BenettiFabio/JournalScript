@@ -100,17 +100,64 @@ Per come é strutturata l'architettura possono essere utilizzati TAG e indici di
 All'interno di una nota é supportato un solo titolo iniziale contenente la data del giorno a cui é riferito ma possono esserci anche altri sottotitoli per fare riferimento a specificitá referite a quel giorno
 
 - `## note` Nota generica
-- `## next` Note che si vogliono portare al giorno successivo
+- `## next` Note che si vogliono portare al giorno successivo come veloci TODO e cose da ricordare
   - (non vengono calcolate nei weekly)
-- `## idea` Idea da esplorare
+- `## idea` Idea da esplorare in modo da salvarle in modo semplice e facile da ricercare
 - `## refs` Riferimento esterno
   - (link, paper..., o documento dentro la cartella dell'anno specifico)
   - (non vengono calcolate nei weekly)
 - `## logs` Log di un evento/azione/riunione
 - `## bugs` Bug da correggere
-- `## tags` Se si vuole taggare la nota con un certo evento
+- `## tags` Se si vuole taggare la nota con un certo evento per facilitarne la ricerca per argomenti
   - (vedi il comando `-t --tag` per maggiori info)
   - (non vengono calcolate nei weekly)
+- `## time` Inserimento di progetti in cui si lavora, ogni ripetizione corrisponde ad un'ora di lavoro, resoconto di ore spese nei progetti in `time-index.md` sotto forma di resoconto complessivo e diviso per mesi negli ultimi due anni.
+
+## Esempio di utilizzo
+
+```markdown
+# 01-01-202x
+
+## next
+
+- Ricorda di scrivere a XXX per il progetto YYY
+<!-- Questa cosa apparirá in cima alla nota del giorno successivo -->
+
+## note
+
+- Aggiornamento della documentazione del progetto YYY
+- Sviluppo sul progetto ZZZ
+- Fix problema in produzione per il device KKK
+
+## logs
+
+- Riunione allineamento Progetto1
+  - si é parlato di A
+  - si é parlato di B
+  - si é parlato di C
+
+## bugs
+
+- ho riscontrato un errore nella seguente situazione del codice WWW, prioritá bassa
+
+## time
+
+- Progetto1
+- Progetto1
+- Progetto1
+- Misc
+- Documentation
+- Progetto2
+- Progetto2
+- Misc
+<!--
+Questo significa che si sono lavorate:
+3 ore sul Progetto1
+2 ore sul Progetto2
+1 ore per la documentazione
+2 ore di Miscellanea per cose generiche
+-->
+```
 
 ## Eseguire il make python
 

@@ -11,13 +11,22 @@ from tkinter import filedialog
 import pyfiglet
 
 ## VERSIONE ##
-JOURNALSCRIPT_VERSION = "1.2.2"
+JOURNALSCRIPT_VERSION = "1.3.0"
 
 ## FILE BLOCCATI ##
 F_MAIN_INDEX = "main-index.md"
 F_TAGS_INDEX = "tags-index.md"
 F_CALENDAR_INDEX = "calendar-index.md"
 F_STATISTICS_INFO = "satistics-info.md"
+F_TIME_INDEX = "time-index.md"
+
+LOCKED_FILES = [
+    F_MAIN_INDEX,
+    F_TAGS_INDEX,
+    F_CALENDAR_INDEX,
+    F_STATISTICS_INFO,
+    F_TIME_INDEX
+]
 
 ## DEFINES ##
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # Directory dello script
@@ -28,6 +37,7 @@ MAIN_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_MAIN_INDEX)).resolve()  # Path 
 TAGS_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_TAGS_INDEX)).resolve()
 CALE_INDEX_FILE = Path(os.path.join(VAULT_DIR, F_CALENDAR_INDEX)).resolve()
 STAT_INFO_FILE =  Path(os.path.join(VAULT_DIR, F_STATISTICS_INFO)).resolve()
+TIME_INDEX_FILE =  Path(os.path.join(VAULT_DIR, F_TIME_INDEX)).resolve()
 
 ## TAGS BLOCCATI ##
 # Questi sottotitoli in una nota non possono essere usati indipendentemente per separare le note
@@ -38,6 +48,7 @@ B_NOTE = "## note"  # Sezione per le note giornaliere
 B_TAGS = "## tags"  # Sezione dei tag
 B_NEXT = "## next"  # Sezione per le note che verranno proiettate al giorno successivo
 B_REFS = "## refs"  # Sezione per i riferimenti agli assets
+B_TIME = "## time"  # Sezione per le ore sui vari progetti
 
 ## DIR BLOCCATE ##
 D_ASSETS = "assets"
@@ -161,7 +172,7 @@ def CheckConsistency():
                     continue
                 
                 if file.endswith(".md"):
-                    if(file == F_MAIN_INDEX or file == F_TAGS_INDEX or file == F_CALENDAR_INDEX or file == F_STATISTICS_INFO):
+                    if(file in LOCKED_FILES):
                         continue
                     # Controlla se il nome del file è nel formato YYYY-MM-DD.md
                     match = re.match(r"(\d{4})-(\d{2})-(\d{2})\.md", file)
@@ -229,6 +240,123 @@ def UpdateMainIndex(notes_by_year):
     except Exception as e:
         print(f"Errore durante l'aggiornamento del file principale: {e}")
 
+def UpdateTimeIndex(prog_data):
+    """
+    Aggiorna il file TIME_INDEX_FILE con tutti i progetti presenti nei vari giorni,
+    Ne conta le occorrenze (e quindi le ore) e ne calcola la percentuale sul lavoro totale
+    """
+    
+    try:
+        # Organizza i dati per anno e mese
+        data_by_year_month = {}
+        year_totals = {}
+        wip_totals = {}
+        
+        # Scansiona tutti i progetti
+        for project, notes_dict in prog_data.items():
+            for note_path, hours in notes_dict.items():
+                # Estrai anno e mese dal percorso della nota (es. "2026/2026-04-28.md")
+                parts = note_path.split("/")
+                if len(parts) >= 2:
+                    year = parts[0]
+                    note_name = parts[1]
+                    month = note_name.split("-")[1]  # Estrai il mese da YYYY-MM-DD.md
+                    
+                    # Inizializza strutture se necessarie
+                    if year not in data_by_year_month:
+                        data_by_year_month[year] = {}
+                        year_totals[year] = {}
+                    
+                    if month not in data_by_year_month[year]:
+                        data_by_year_month[year][month] = {}
+                    
+                    if project not in data_by_year_month[year][month]:
+                        data_by_year_month[year][month][project] = 0
+                    
+                    # Aggiungi le ore
+                    data_by_year_month[year][month][project] += hours
+                    
+                    # Aggiungi al totale annuale
+                    if project not in year_totals[year]:
+                        year_totals[year][project] = 0
+                    year_totals[year][project] += hours
+                    
+                    # Aggiungi al totale WIP (anno corrente)
+                    current_year = str(today.year)
+                    if year == current_year:
+                        if project not in wip_totals:
+                            wip_totals[project] = 0
+                        wip_totals[project] += hours
+        
+        # Calcola il totale ore dell'anno corrente per le percentuali WIP
+        current_year = str(today.year)
+        total_wip_hours = sum(wip_totals.values()) if wip_totals else 1
+        
+        # Scrivi il file TIME_INDEX_FILE
+        with open(TIME_INDEX_FILE, "w", encoding="utf-8") as f:
+            f.write("# Time Index\n\n")
+            
+            # Sezione WIP (anno corrente)
+            if wip_totals:
+                f.write("## Total Time for projects\n\n")
+                # Ordina i progetti per ore decrescenti
+                sorted_wip = sorted(wip_totals.items(), key=lambda x: x[1], reverse=True)
+                
+                # Calcola la lunghezza massima del nome del progetto per l'allineamento
+                max_project_len = max(len(project) for project, _ in sorted_wip) if sorted_wip else 0
+                
+                for project, hours in sorted_wip:
+                    percentage = (hours / total_wip_hours * 100) if total_wip_hours > 0 else 0
+                    f.write(f"- {project:<{max_project_len}}: {hours:>3} ore | {percentage:>5.1f}%\n")
+                f.write("\n")
+            
+            # Sezione per ogni anno (ordinati decrescenti)
+            for year in sorted(data_by_year_month.keys(), reverse=True):
+                f.write(f"## {year}\n\n")
+                
+                months_dict = data_by_year_month[year]
+                
+                # Calcola il totale ore dell'anno per le percentuali
+                total_year_hours = sum(year_totals[year].values()) if year in year_totals else 1
+                
+                # Scrivi il resoconto annuale
+                # f.write(f"### Totale {year}\n\n")
+                # sorted_year_projects = sorted(year_totals[year].items(), key=lambda x: x[1], reverse=True)
+                # for project, hours in sorted_year_projects:
+                #     percentage = (hours / total_year_hours * 100) if total_year_hours > 0 else 0
+                #     f.write(f"- {project}: {hours} ore | {percentage:.1f}%\n")
+                # f.write("\n")
+                
+                # Ordina i mesi decrescenti
+                for month in sorted(months_dict.keys(), reverse=True):
+                    # Converti il numero del mese in nome (01 -> gennaio, etc.)
+                    month_names = {
+                        "01": "Gen", "02": "Feb", "03": "Mar", "04": "Apr",
+                        "05": "Mag", "06": "Giu", "07": "Lug", "08": "Ago",
+                        "09": "Set", "10": "Ott", "11": "Nov", "12": "Dic"
+                    }
+                    month_name = month_names.get(month, month)
+                    
+                    f.write(f"### {month_name}\n\n")
+                    
+                    # Calcola il totale ore del mese
+                    month_data = months_dict[month]
+                    total_month_hours = sum(month_data.values())
+                    
+                    # Calcola la lunghezza massima del nome del progetto
+                    max_project_len = max(len(project) for project, _ in month_data.items()) if month_data else 0
+                    
+                    # Ordina i progetti per ore decrescenti
+                    sorted_projects = sorted(month_data.items(), key=lambda x: x[1], reverse=True)
+                    for project, hours in sorted_projects:
+                        percentage = (hours / total_month_hours * 100) if total_month_hours > 0 else 0
+                        f.write(f"- {project:<{max_project_len}}: {hours:>3} ore | {percentage:>5.1f}%\n")
+                    f.write("\n")
+        
+        # print(f"File {TIME_INDEX_FILE} aggiornato con successo!")
+        
+    except Exception as e:
+        print(f"Errore durante l'aggiornamento del time index: {e}")
 
 def UpdateTagsIndex(tags_data):
     """
@@ -473,6 +601,7 @@ def UpdateIndex():
         # Dizionario per organizzare le note per anno
         notes_by_year = {}
         tags_data = {}  # Dizionario per organizzare i tag e le note associate
+        prog_data = {}  # Dizionario dei progetti per organizzare il time index
 
         # Scansiona il VAULT_DIR per trovare tutte le note
         for root, dirs, files in os.walk(VAULT_DIR):
@@ -498,11 +627,13 @@ def UpdateIndex():
                             notes_by_year[year] = []
                         notes_by_year[year].append((note_name, relative_path))
 
-                    # Leggi i tag dalla nota se contiene il blocco "## tags"
+                    # Leggi i tag dalla nota se contiene il blocco "## tags" e "## time"
                     with open(file_path, "r", encoding="utf-8") as note_file:
                         content = note_file.readlines()
                         tags_section_found = False
+                        time_section_found = False
                         for i, line in enumerate(content):
+                            # "## tags"
                             if line.strip() == B_TAGS:
                                 tags_section_found = True
                                 j = i + 1
@@ -516,10 +647,28 @@ def UpdateIndex():
                                         break
                                     j += 1
                                 break
+                            # "## time"
+                            if line.strip() == B_TIME:
+                                time_section_found = True
+                                j = i + 1
+                                while j < len(content):
+                                    if content[j].startswith("- "):  # Considera solo gli elenchi puntati
+                                        prog = content[j].strip().lstrip("- ").strip()
+                                        if prog not in prog_data:
+                                            prog_data[prog] = {}  # Cambia da lista a dizionario
+                                        # Incrementa il conteggio per questo progetto in questa nota
+                                        if relative_path not in prog_data[prog]:
+                                            prog_data[prog][relative_path] = 0
+                                        prog_data[prog][relative_path] += 1
+                                    elif content[j].strip().startswith(B_SUBTITLE):  # Fine del blocco ## time
+                                        break
+                                    j += 1
+                                break
 
         # Aggiorna i file degli indici
         UpdateMainIndex(notes_by_year)
         UpdateTagsIndex(tags_data)
+        UpdateTimeIndex(prog_data)
         UpdateCalendarIndex(notes_by_year)
         UpdateStatistics()
 
