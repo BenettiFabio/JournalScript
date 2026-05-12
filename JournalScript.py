@@ -11,7 +11,7 @@ from tkinter import filedialog
 import pyfiglet
 
 ## VERSIONE ##
-JOURNALSCRIPT_VERSION = "1.3.0"
+JOURNALSCRIPT_VERSION = "1.3.1"
 
 ## FILE BLOCCATI ##
 F_MAIN_INDEX = "main-index.md"
@@ -646,7 +646,7 @@ def UpdateIndex():
                                     elif content[j].strip().startswith(B_SUBTITLE):  # Fine del blocco ## tags
                                         break
                                     j += 1
-                                break
+                                continue
                             # "## time"
                             if line.strip() == B_TIME:
                                 time_section_found = True
@@ -663,7 +663,7 @@ def UpdateIndex():
                                     elif content[j].strip().startswith(B_SUBTITLE):  # Fine del blocco ## time
                                         break
                                     j += 1
-                                break
+                                continue
 
         # Aggiorna i file degli indici
         UpdateMainIndex(notes_by_year)
