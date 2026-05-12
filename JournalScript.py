@@ -11,7 +11,7 @@ from tkinter import filedialog
 import pyfiglet
 
 ## VERSIONE ##
-JOURNALSCRIPT_VERSION = "1.3.1"
+JOURNALSCRIPT_VERSION = "1.3.2"
 
 ## FILE BLOCCATI ##
 F_MAIN_INDEX = "main-index.md"
@@ -1026,6 +1026,7 @@ def WeekLog(year=None):
 
             # Dizionario per raggruppare il contenuto delle note per sezione
             sections = {}
+            weekly_time_counts = {}
 
             # Unisci il contenuto delle note della settimana
             notes_in_week = sorted(weeks_data[start_of_week])
@@ -1044,10 +1045,27 @@ def WeekLog(year=None):
                             if current_section not in sections:
                                 sections[current_section] = []
                             continue  # Non aggiungere il titolo della sezione al contenuto
+
+                        if current_section == B_TIME:
+                            if stripped_line.startswith("- "):
+                                project = stripped_line.lstrip("- ").strip()
+                                weekly_time_counts[project] = weekly_time_counts.get(project, 0) + 1
+                            continue
+
                         if current_section:  # Aggiungi contenuto solo se la sezione è valida
                             # Correggi i link Markdown che puntano a file asset
                             line = re.sub(r'\]\((assets/[^)]+)\)', r'](../\1)', line) # Trasforma i link markdown da `](assets/file.md)` a `](../assets/file.md)`
                             sections.setdefault(current_section, []).append(line)
+
+            # Costruisci il riassunto settimanale per ## time
+            if weekly_time_counts:
+                total_week_hours = sum(weekly_time_counts.values())
+                max_project_len = max(len(project) for project in weekly_time_counts)
+                summary_lines = []
+                for project, hours in sorted(weekly_time_counts.items(), key=lambda x: x[1], reverse=True):
+                    percentage = (hours / total_week_hours) * 100 if total_week_hours else 0
+                    summary_lines.append(f"- {project:<{max_project_len}}: {hours:>3} ore | {percentage:>5.1f}%\n")
+                sections[B_TIME] = summary_lines
 
             # Scrivi il contenuto unito nel file settimanale
             with open(weekly_file_path, "w", encoding="utf-8") as weekly_file:
